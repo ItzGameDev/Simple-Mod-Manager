@@ -1,0 +1,406 @@
+<Window x:Class="SimpleModManager.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        xmlns:local="clr-namespace:SimpleModManager"
+        Title="Simple Mod Manager" Icon="Assets/app.ico" Width="1190" Height="830" MinWidth="890" MinHeight="660"
+        WindowStartupLocation="CenterScreen" WindowStyle="None" ResizeMode="CanResize"
+        Background="Transparent" UseLayoutRounding="True" SnapsToDevicePixels="True"
+        FontFamily="{StaticResource InterfaceFont}" FontSize="13" Foreground="{DynamicResource Text}"
+        TextOptions.TextFormattingMode="Display" TextOptions.TextRenderingMode="Grayscale"
+        PreviewKeyDown="OnKeyDown" StateChanged="OnStateChanged" SourceInitialized="RoundWindow">
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="43" ResizeBorderThickness="6" GlassFrameThickness="0" CornerRadius="0" UseAeroCaptionButtons="False" />
+    </shell:WindowChrome.WindowChrome>
+    <Border x:Name="MainSurface" BorderBrush="{DynamicResource Outline}" Background="{DynamicResource Backdrop}"
+            BorderThickness="1" CornerRadius="11" ClipToBounds="True">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="46" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+
+            <Border Background="{DynamicResource Rail}" BorderBrush="{DynamicResource Outline}" BorderThickness="0,0,0,1">
+                <Grid Margin="17,0,7,0">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Border Background="{DynamicResource Accent}" CornerRadius="6" Width="24" Height="24">
+                            <Path Data="M 0,4 L 5,0 L 5,5 L 10,1 L 10,8 L 5,12 L 5,7 L 0,11 Z"
+                                  Fill="{DynamicResource AccentInk}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <TextBlock Text="Simple Mod Manager" Margin="10,0,0,0" FontWeight="SemiBold" VerticalAlignment="Center" />
+                    </StackPanel>
+                    <StackPanel HorizontalAlignment="Right" VerticalAlignment="Center" Orientation="Horizontal"
+                                shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                        <Button Style="{StaticResource CaptionButton}" Click="Minimize" ToolTip="Minimize" AutomationProperties.Name="Minimize">
+                            <Path Style="{StaticResource ChromeGlyph}" Data="M 0,5 H 10" />
+                        </Button>
+                        <Button x:Name="MaximizeButton" Style="{StaticResource CaptionButton}" Click="Maximize" ToolTip="Maximize" AutomationProperties.Name="Maximize">
+                            <Path x:Name="MaximizeGlyph" Style="{StaticResource ChromeGlyph}" Data="M 0,0 H 9 V 9 H 0 Z" />
+                        </Button>
+                        <Button Style="{StaticResource CloseCaptionButton}" Click="CloseWindow" ToolTip="Close" AutomationProperties.Name="Close">
+                            <Path Style="{StaticResource ChromeGlyph}" Data="M 0,0 L 9,9 M 9,0 L 0,9" />
+                        </Button>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <Grid Grid.Row="1" x:Name="TourBackground">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="211" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Border Background="{DynamicResource Rail}" BorderBrush="{DynamicResource Outline}" BorderThickness="0,0,1,0">
+                    <DockPanel Margin="14,24,14,16" LastChildFill="True">
+                        <StackPanel DockPanel.Dock="Bottom">
+                            <Border Style="{StaticResource Panel}" Padding="12">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Ellipse x:Name="GameIndicator" Width="7" Height="7" Fill="{DynamicResource Muted}" Margin="0,0,8,0" />
+                                        <TextBlock x:Name="RailGame" Text="Gorilla Tag" FontWeight="SemiBold" />
+                                    </StackPanel>
+                                    <TextBlock x:Name="RailLoader" Text="Checking for game…" Style="{StaticResource MutedText}"
+                                               Margin="15,3,0,0" TextWrapping="Wrap" FontSize="12" />
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                        <StackPanel>
+                            <TextBlock Text="Gorilla Tag PCVR" Style="{StaticResource MutedText}" FontWeight="SemiBold" FontSize="12" Margin="11,0,0,13" />
+                            <Grid x:Name="NavigationChoices" SizeChanged="AlignSelections">
+                                <Canvas IsHitTestVisible="False"><Border x:Name="NavigationOutline" Style="{StaticResource SlidingOutline}" /></Canvas>
+                                <StackPanel>
+                            <Button x:Name="LibraryNav" Style="{StaticResource Nav}" Click="ShowLibrary">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Style="{StaticResource NavGlyph}" Data="M 0,0 H 5 V 5 H 0 Z M 8,0 H 13 V 5 H 8 Z M 0,8 H 5 V 13 H 0 Z M 8,8 H 13 V 13 H 8 Z" />
+                                    <TextBlock Text="Mod Libary" Margin="12,0,0,0" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="InstalledNav" Style="{StaticResource Nav}" Click="ShowInstalled">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Style="{StaticResource NavGlyph}" Data="M 6.5,0 V 8 M 3,4.5 L 6.5,8 L 10,4.5 M 1,9 V 13 H 12 V 9" />
+                                    <TextBlock Text="Installed Mods" Margin="12,0,0,0" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="ModToolsNav" Style="{StaticResource Nav}" Click="ShowModTools">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Style="{StaticResource NavGlyph}" Data="M 0,4 H 13 V 12 H 0 Z M 4,4 V 1 H 9 V 4 M 0,7 H 5 V 9 H 8 V 7 H 13" />
+                                    <TextBlock Text="Mod Tools" Margin="12,0,0,0" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="SetupNav" Style="{StaticResource Nav}" Click="ShowSetup">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Style="{StaticResource NavGlyph}" Data="M 0,2 H 13 M 0,6.5 H 13 M 0,11 H 13 M 4,0 V 4 M 9,4.5 V 8.5 M 5,9 V 13" />
+                                    <TextBlock Text="Game Setup" Margin="12,0,0,0" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="SettingsNav" Style="{StaticResource Nav}" Click="ShowSettings">
+                                <StackPanel Orientation="Horizontal">
+                                    <Path Style="{StaticResource NavGlyph}" Data="M 3,1 H 10 L 13,6.5 L 10,12 H 3 L 0,6.5 Z M 6.5,4 A 2.5,2.5 0 1 1 6.49,4" />
+                                    <TextBlock Text="Settings" Margin="12,0,0,0" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" />
+                                </StackPanel>
+                            </Button>
+                                </StackPanel>
+                            </Grid>
+                        </StackPanel>
+                    </DockPanel>
+                </Border>
+
+                <Grid Grid.Column="1" x:Name="Workspace">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <Grid x:Name="LibraryPage" Margin="28,25,19,4">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <Border x:Name="LibraryHero" Style="{StaticResource Panel}" MinHeight="135" Margin="0,0,7,0">
+                                <Grid ClipToBounds="True">
+                                    <Viewbox Width="305" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,-9,0,-9" IsHitTestVisible="False">
+                                        <Canvas Width="310" Height="172">
+                                            <Path Data="M 0,142 L 104,38 L 299,38 M 0,168 L 130,38 M 23,172 L 157,38 M 50,172 L 184,38 M 77,172 L 211,38 M 104,172 L 238,38 M 131,172 L 265,38 M 158,172 L 292,38 M 185,172 L 310,47 M 212,172 L 310,74 M 239,172 L 310,101 M 266,172 L 310,128"
+                                                  Stroke="{DynamicResource Accent}" Opacity=".16" StrokeThickness="1" />
+                                            <Path Data="M 171,57 L 217,30 L 263,57 L 217,84 Z M 171,57 L 171,111 L 217,139 L 263,111 L 263,57 M 217,84 L 217,139"
+                                                  Stroke="{DynamicResource AccentSoft}" StrokeThickness="1.3" Fill="#19171E12" StrokeLineJoin="Round" />
+                                            <Path Data="M 190,68 L 217,52 L 244,68 L 217,84 Z M 190,68 L 190,99 L 217,116 L 244,99 L 244,68 M 217,84 L 217,116"
+                                                  Stroke="{DynamicResource Accent}" StrokeThickness="1.2" Fill="#261F2A14" StrokeLineJoin="Round" />
+                                            <Ellipse x:Name="OuterSpark" Width="5" Height="5" Canvas.Left="-2.5" Canvas.Top="-2.5" Fill="{DynamicResource AccentSoft}">
+                                                <Ellipse.RenderTransform><TranslateTransform X="217" Y="30" /></Ellipse.RenderTransform>
+                                            </Ellipse>
+                                            <Ellipse x:Name="InnerSpark" Width="6" Height="6" Canvas.Left="-3" Canvas.Top="-3" Fill="{DynamicResource Accent}">
+                                                <Ellipse.RenderTransform><TranslateTransform X="190" Y="68" /></Ellipse.RenderTransform>
+                                            </Ellipse>
+                                            <Ellipse x:Name="FaceSpark" Width="4" Height="4" Canvas.Left="-2" Canvas.Top="-2" Fill="{DynamicResource Accent}">
+                                                <Ellipse.RenderTransform><TranslateTransform X="217" Y="84" /></Ellipse.RenderTransform>
+                                            </Ellipse>
+                                        </Canvas>
+                                    </Viewbox>
+                                    <StackPanel VerticalAlignment="Center" Margin="23,16,22,16">
+                                        <TextBlock x:Name="LibraryTitle" Text="Mod Libary" Style="{StaticResource Heading}" FontSize="34" />
+                                        <TextBlock x:Name="LibraryIntro" Text="Browse and install community mods for Gorilla Tag on PC."
+                                                   Style="{StaticResource MutedText}" FontSize="14" Margin="0,7,0,0" />
+                                    </StackPanel>
+                                </Grid>
+                            </Border>
+
+                            <Grid Grid.Row="1" Margin="0,18,7,13" x:Name="CatalogTools">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <Grid Margin="0,0,12,0">
+                                    <TextBox x:Name="SearchBox" Style="{StaticResource SearchInput}" Height="40" TextChanged="SearchChanged"
+                                             AutomationProperties.Name="Search mods" />
+                                    <Path Data="M 6,1 A 5,5 0 1 1 5.99,1 M 9.6,9.6 L 14,14" Stroke="{DynamicResource Muted}" StrokeThickness="1.2"
+                                          VerticalAlignment="Center" HorizontalAlignment="Left" Margin="12,0,0,0" IsHitTestVisible="False" />
+                                    <TextBlock x:Name="SearchHint" Text="Search mods" Style="{StaticResource MutedText}" IsHitTestVisible="False"
+                                               VerticalAlignment="Center" Margin="34,0,0,0" />
+                                    <Button x:Name="ClearSearchButton" Style="{StaticResource Chrome}" HorizontalAlignment="Right" VerticalAlignment="Center"
+                                            Margin="0,0,3,0" Width="29" Height="29" Click="ClearSearch" Visibility="Collapsed" AutomationProperties.Name="Clear search">
+                                        <Path Style="{StaticResource ChromeGlyph}" Data="M 0,0 L 9,9 M 9,0 L 0,9" />
+                                    </Button>
+                                </Grid>
+                                <Border x:Name="CategoryFilterFrame" Grid.Column="1" Style="{StaticResource Panel}" CornerRadius="12" Padding="3" Background="{DynamicResource Rail}">
+                                    <Grid x:Name="FilterChoices" SizeChanged="AlignSelections" IsVisibleChanged="AlignVisibleSelection">
+                                        <Canvas IsHitTestVisible="False"><Border x:Name="FilterOutline" Style="{StaticResource SlidingOutline}" /></Canvas>
+                                        <StackPanel Orientation="Horizontal">
+                                        <Button x:Name="AllFilter" Content="All mods" Tag="Active" Style="{StaticResource Filter}" Click="FilterMods" MinHeight="31" />
+                                        <Button x:Name="GameplayFilter" Content="Gameplay" Style="{StaticResource Filter}" Click="FilterMods" MinHeight="31" />
+                                        <Button x:Name="CosmeticsFilter" Content="Cosmetics" Style="{StaticResource Filter}" Click="FilterMods" MinHeight="31" />
+                                        <Button x:Name="CaptureFilter" Content="Capture" Style="{StaticResource Filter}" Click="FilterMods" MinHeight="31" />
+                                        <Button x:Name="UtilitiesFilter" Content="Utilities" Style="{StaticResource Filter}" Click="FilterMods" MinHeight="31" />
+                                        <Button x:Name="LibraryFilter" Content="Libraries" Style="{StaticResource Filter}" Click="FilterMods" MinHeight="31" />
+                                        </StackPanel>
+                                    </Grid>
+                                </Border>
+                            </Grid>
+
+                            <DockPanel Grid.Row="2" Margin="0,4,7,12">
+                                <TextBlock x:Name="CatalogHeading" Text="Browse mods" Style="{StaticResource SectionHeading}" DockPanel.Dock="Left" />
+                                <TextBlock x:Name="CatalogCount" Style="{StaticResource MutedText}" HorizontalAlignment="Right" VerticalAlignment="Center" />
+                            </DockPanel>
+                        <local:SmoothScrollViewer Grid.Row="3" x:Name="CardScroll" VerticalScrollBarVisibility="Visible"
+                                                  IsDeferredScrollingEnabled="True"
+                                                  HorizontalScrollBarVisibility="Disabled" PanningMode="VerticalOnly"
+                                                  AutomationProperties.Name="Mod catalog">
+                            <StackPanel Margin="0,2,3,10">
+                                <UniformGrid x:Name="Cards" Columns="3" Margin="-6,0,-6,0" SizeChanged="ResizeCards" />
+                                <Border x:Name="EmptyState" Style="{StaticResource Panel}" Padding="20" Visibility="Collapsed">
+                                    <TextBlock x:Name="EmptyText" Style="{StaticResource MutedText}" TextWrapping="Wrap" />
+                                </Border>
+                            </StackPanel>
+                        </local:SmoothScrollViewer>
+                    </Grid>
+
+                    <ScrollViewer x:Name="ModToolsPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                        <StackPanel Margin="28,25,26,20">
+                            <TextBlock Text="Mod Tools" Style="{StaticResource Heading}" />
+                            <StackPanel x:Name="ModToolsBody" Margin="0,19,0,0" />
+                        </StackPanel>
+                    </ScrollViewer>
+                    <ScrollViewer x:Name="SetupPage" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
+                        <StackPanel Margin="28,25,26,20">
+                            <TextBlock Text="Game Setup" Style="{StaticResource Heading}" />
+                            <TextBlock Text="Choose a Gorilla Tag installation and check its mod loader." Style="{StaticResource MutedText}" Margin="0,7,0,20" />
+
+                            <Border Style="{StaticResource Panel}" Padding="18" Margin="0,0,0,13">
+                                <StackPanel>
+                                    <TextBlock Text="Game installation" Style="{StaticResource SectionHeading}" />
+                                    <TextBlock x:Name="SetupGame" Text="Looking for Gorilla Tag…" Style="{StaticResource MutedText}" Margin="0,6,0,0" />
+                                    <TextBox x:Name="GamePathBox" IsReadOnly="True" Visibility="Collapsed" Margin="0,11,0,0" AutomationProperties.Name="Game folder" />
+                                    <WrapPanel x:Name="DetectedGames" Margin="0,8,0,0" />
+                                    <WrapPanel Margin="0,4,0,0">
+                                        <Button x:Name="BrowseGameButton" Content="Browse for game" Click="BrowseGame" Margin="0,0,8,5" />
+                                        <Button Content="Scan again" Click="ScanAgain" Margin="0,0,8,5" />
+                                        <Button x:Name="OpenGameButton" Content="Open game folder" Click="OpenGameFolder" IsEnabled="False" Margin="0,0,0,5" />
+                                    </WrapPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Style="{StaticResource Panel}" Padding="18" Margin="0,0,0,13">
+                                <StackPanel>
+                                    <TextBlock Text="BepInEx for Windows x64" Style="{StaticResource SectionHeading}" />
+                                    <TextBlock x:Name="SetupLoader" Text="Select a game folder to begin." Style="{StaticResource MutedText}"
+                                               Margin="0,6,0,0" TextWrapping="Wrap" />
+                                    <WrapPanel Margin="0,12,0,0">
+                                        <Button x:Name="InstallLoaderButton" Content="Install BepInEx" Style="{StaticResource Primary}"
+                                                Click="InstallLoaderClicked" IsEnabled="False" Margin="0,0,8,5" />
+                                        <Button Content="Official release" Click="OpenBepInEx" Margin="0,0,8,5" />
+                                        <Button Content="Game tools" Click="OpenGameTools" Margin="0,0,8,5" />
+                                        <Button x:Name="OpenPluginsButton" Content="Open plugins folder" Click="OpenPluginsFolder" IsEnabled="False" Margin="0,0,0,5" />
+                                    </WrapPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <TextBlock Text="Independent community tool for Gorilla Tag. Another Axiom does not endorse or sponsor this project."
+                                       Style="{StaticResource MutedText}" TextWrapping="Wrap" Margin="0,2,0,5" />
+                            <Button Content="Gorilla Tag Mod Policy" Style="{StaticResource Quiet}" HorizontalAlignment="Left"
+                                    Padding="0,6" Click="OpenModPolicy" />
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <ScrollViewer x:Name="SettingsPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
+                        <StackPanel Margin="28,25,26,20">
+                            <DockPanel Margin="0,0,0,20">
+                                <Button x:Name="TutorialLaunchButton" DockPanel.Dock="Right" Content="Open tutorial" Click="ShowTutorial" Margin="0,0,8,0" />
+                                <TextBlock Text="Settings" Style="{StaticResource Heading}" />
+                            </DockPanel>
+                            <Border Style="{StaticResource Panel}" Padding="18" Margin="0,0,0,13">
+                                <StackPanel>
+                                    <DockPanel><Button DockPanel.Dock="Right" Content="Custom theme" Click="OpenThemeEditor" /><TextBlock Text="Appearance" Style="{StaticResource SectionHeading}" /></DockPanel>
+                                    <TextBlock x:Name="AppearanceNote" Style="{StaticResource MutedText}" TextWrapping="Wrap" Margin="0,6,0,13" />
+                                    <Border Style="{StaticResource Panel}" Background="{DynamicResource Rail}" Padding="4">
+                                        <Grid x:Name="ThemeChoices" SizeChanged="AlignSelections" IsVisibleChanged="AlignVisibleSelection">
+                                            <Canvas IsHitTestVisible="False"><Border x:Name="ThemeOutline" Style="{StaticResource SlidingOutline}" /></Canvas>
+                                            <UniformGrid x:Name="ThemeOptions" Columns="4" />
+                                        </Grid>
+                                    </Border>
+                                </StackPanel>
+                            </Border>
+                            <Border Style="{StaticResource Panel}" Padding="18" Margin="0,0,0,13">
+                                <DockPanel>
+                                    <ToggleButton x:Name="MotionSwitch" DockPanel.Dock="Right" Margin="14,0,0,0"
+                                                  Style="{StaticResource SettingsSwitch}" Loaded="SettingsSwitchLoaded" Click="ChangeSetting"
+                                                  AutomationProperties.Name="Interface motion" />
+                                    <StackPanel>
+                                        <TextBlock Text="Interface motion" Style="{StaticResource SectionHeading}" />
+                                        <TextBlock Text="Animate page transitions, scrolling, and the cube’s dots." Style="{StaticResource MutedText}" Margin="0,5,0,0" />
+                                    </StackPanel>
+                                </DockPanel>
+                            </Border>
+                            <Border Style="{StaticResource Panel}" Padding="18">
+                                <DockPanel>
+                                    <ToggleButton x:Name="BannersSwitch" DockPanel.Dock="Right" Margin="14,0,0,0"
+                                                  Style="{StaticResource SettingsSwitch}" Loaded="SettingsSwitchLoaded" Click="ChangeSetting"
+                                                  AutomationProperties.Name="Animated banners" />
+                                    <StackPanel>
+                                        <TextBlock Text="Animated banners" Style="{StaticResource SectionHeading}" />
+                                        <TextBlock Text="Play GIF banners while they’re visible." Style="{StaticResource MutedText}" Margin="0,5,0,0" />
+                                    </StackPanel>
+                                </DockPanel>
+                            </Border>
+                        </StackPanel>
+                    </ScrollViewer>
+
+                    <ContentControl x:Name="ToolPage" Visibility="Collapsed" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
+
+                    <Border Grid.Row="1" x:Name="StatusPanel" Background="{DynamicResource Selection}" BorderBrush="{DynamicResource SelectionOutline}" BorderThickness="1"
+                            CornerRadius="9" Padding="12,8" Margin="27,0,26,9" Visibility="Collapsed">
+                        <DockPanel>
+                            <Button x:Name="AdminButton" DockPanel.Dock="Right" Content="Run as administrator" Click="RestartElevated"
+                                    Visibility="Collapsed" Margin="10,0,0,0" />
+                            <Button x:Name="DismissStatusButton" DockPanel.Dock="Right" Style="{StaticResource Chrome}"
+                                    Width="32" Height="30" Click="DismissStatus" AutomationProperties.Name="Dismiss status">
+                                <Path Style="{StaticResource ChromeGlyph}" Data="M 0,0 L 9,9 M 9,0 L 0,9" />
+                            </Button>
+                            <TextBlock x:Name="StatusText" TextWrapping="Wrap" VerticalAlignment="Center" AutomationProperties.LiveSetting="Polite" />
+                        </DockPanel>
+                    </Border>
+
+                    <Border Grid.Row="2" Background="{DynamicResource Rail}" BorderBrush="{DynamicResource Outline}" BorderThickness="0,1,0,0"
+                            Padding="27,12,26,12">
+                        <DockPanel LastChildFill="True">
+                            <Button x:Name="RequestModButton" DockPanel.Dock="Right" Style="{StaticResource Primary}" Content="Request a mod ↗"
+                                    Click="OpenDiscord" Margin="14,0,0,0" VerticalAlignment="Center" />
+                            <StackPanel VerticalAlignment="Center">
+                                <TextBlock Text="Want your mod in the library?" FontWeight="SemiBold" />
+                                <TextBlock Text="Share it with us on Discord." Style="{StaticResource MutedText}" Margin="0,3,0,0" FontSize="12" />
+                            </StackPanel>
+                        </DockPanel>
+                    </Border>
+                </Grid>
+            </Grid>
+
+            <Grid Grid.Row="1" Panel.ZIndex="1" x:Name="DetailsOverlay" Visibility="Collapsed" Background="#B8090A0B"
+                  MouseLeftButtonDown="DismissDetailsFromBackdrop" KeyboardNavigation.TabNavigation="Cycle">
+                <Border x:Name="DetailsCard" Style="{StaticResource Panel}" CornerRadius="23" Width="480" HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <Border.Effect><DropShadowEffect BlurRadius="32" ShadowDepth="8" Direction="270" Opacity=".55" /></Border.Effect>
+                    <StackPanel Margin="20">
+                        <DockPanel>
+                            <Button x:Name="CloseDetailsButton" DockPanel.Dock="Right" Style="{StaticResource Chrome}" Width="34"
+                                    Height="33" Click="CloseDetails" AutomationProperties.Name="Close mod details">
+                                <Path Style="{StaticResource ChromeGlyph}" Data="M 0,0 L 9,9 M 9,0 L 0,9" />
+                            </Button>
+                            <TextBlock Text="Mod details" Style="{StaticResource SectionHeading}" VerticalAlignment="Center" />
+                        </DockPanel>
+                        <Border x:Name="DetailArt" Height="111" CornerRadius="9" Margin="0,10,0,13"
+                                SizeChanged="ClipDetailArt" />
+                        <Button x:Name="DetailFavorite" HorizontalAlignment="Right" Click="FavoriteDetail" Margin="0,0,0,5" />
+                        <TextBlock x:Name="DetailName" Style="{StaticResource Heading}" FontSize="25" TextWrapping="Wrap" />
+                        <TextBlock x:Name="DetailMeta" Style="{StaticResource MutedText}" Margin="0,4,0,10" TextWrapping="Wrap" />
+                        <TextBlock x:Name="DetailDescription" TextWrapping="Wrap" Margin="0,0,0,10" />
+                        <TextBlock x:Name="DetailNote" Foreground="{DynamicResource Accent}" TextWrapping="Wrap" />
+                        <DockPanel Margin="0,14,0,0">
+                            <Button x:Name="DetailAction" DockPanel.Dock="Right" Style="{StaticResource Primary}" Click="ChangeMod" />
+                            <Button x:Name="ToggleModButton" DockPanel.Dock="Right" Style="{StaticResource Primary}"
+                                    Margin="8,0,0,0" Click="ToggleMod" Visibility="Collapsed" />
+                            <Button x:Name="ModSourceButton" Margin="0,0,6,0" Content="View source  ↗" Click="OpenModSource" HorizontalAlignment="Left" />
+                            <Button x:Name="QueueModButton" Content="Queue" Click="QueueDetail" HorizontalAlignment="Left" />
+                        </DockPanel>
+                    </StackPanel>
+                </Border>
+            </Grid>
+
+            <Grid Grid.Row="1" Panel.ZIndex="2" x:Name="DownloadOverlay" Visibility="Collapsed" Background="#C3090A10"
+                  MouseLeftButtonDown="DismissDownloadFromBackdrop" KeyboardNavigation.TabNavigation="Cycle">
+                <Border x:Name="DownloadCard" Style="{StaticResource Panel}" CornerRadius="23" Width="465" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="24">
+                    <Border.Effect><DropShadowEffect BlurRadius="34" ShadowDepth="9" Direction="270" Opacity=".65" /></Border.Effect>
+                    <StackPanel>
+                        <Grid Width="62" Height="62" HorizontalAlignment="Left" Margin="0,0,0,13">
+                            <Ellipse Stroke="{DynamicResource Outline}" StrokeThickness="2" Fill="{DynamicResource Raised}" />
+                            <Path x:Name="DownloadOrbit" Data="M 31,1 A 30,30 0 0 1 61,31" Stroke="{DynamicResource Accent}"
+                                  StrokeThickness="2.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round" RenderTransformOrigin=".5,.5">
+                                <Path.RenderTransform><RotateTransform /></Path.RenderTransform>
+                            </Path>
+                            <Path Data="M 10,1 V 15 M 5,10 L 10,15 L 15,10 M 1,15 V 20 H 19 V 15"
+                                  Stroke="{DynamicResource Accent}" StrokeThickness="1.7" StrokeLineJoin="Round"
+                                  HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Grid>
+                        <TextBlock x:Name="DownloadTitle" Style="{StaticResource Heading}" FontSize="26" TextWrapping="Wrap" />
+                        <TextBlock x:Name="DownloadStage" Style="{StaticResource MutedText}" Margin="0,7,0,16" TextWrapping="Wrap" />
+                        <DockPanel>
+                            <TextBlock x:Name="DownloadPercent" DockPanel.Dock="Right" FontSize="17" FontWeight="SemiBold"
+                                       Foreground="{DynamicResource Accent}" Margin="12,0,0,0" MinWidth="44" TextAlignment="Right" />
+                            <ProgressBar x:Name="DownloadBar" Minimum="0" Maximum="100" Height="9" VerticalAlignment="Center"
+                                         Style="{StaticResource DownloadProgress}" AutomationProperties.Name="Install progress" />
+                        </DockPanel>
+                        <Button x:Name="CancelDownloadButton" Content="Cancel" HorizontalAlignment="Right" Margin="0,17,0,0" Click="CancelDownload" />
+                    </StackPanel>
+                </Border>
+            </Grid>
+            <Canvas Grid.Row="1" x:Name="TutorialOverlay" Visibility="Collapsed" ClipToBounds="True"
+                    SizeChanged="TutorialLayoutChanged" KeyboardNavigation.TabNavigation="Cycle">
+                <Grid x:Name="TutorialVeil" IsHitTestVisible="False">
+                    <Rectangle>
+                        <Rectangle.Fill><VisualBrush Visual="{Binding ElementName=TourBackground}" Stretch="Fill" /></Rectangle.Fill>
+                        <Rectangle.Effect><BlurEffect Radius="8" RenderingBias="Performance" /></Rectangle.Effect>
+                    </Rectangle>
+                    <Rectangle Fill="#A5090A0B" />
+                </Grid>
+                <Path x:Name="TutorialShield" Fill="Transparent" />
+                <Border x:Name="TutorialSpotlight" BorderBrush="{DynamicResource Accent}" BorderThickness="2"
+                        CornerRadius="10" IsHitTestVisible="False" />
+                <StackPanel x:Name="TutorialCard" Width="350">
+                        <TextBlock x:Name="TutorialStep" Style="{StaticResource MutedText}" />
+                        <TextBlock x:Name="TutorialTitle" Style="{StaticResource Heading}" Margin="0,7,0,12" />
+                        <TextBlock x:Name="TutorialBody" TextWrapping="Wrap" FontSize="14" LineHeight="22" />
+                        <DockPanel Margin="0,20,0,0">
+                            <Button DockPanel.Dock="Left" Content="Skip" Click="SkipTutorial" />
+                            <Button x:Name="TutorialNext" DockPanel.Dock="Right" Style="{StaticResource Primary}"
+                                    Content="Next" Click="NextTutorial" />
+                            <Button x:Name="TutorialBack" DockPanel.Dock="Right" Content="Back"
+                                    Margin="0,0,8,0" Click="BackTutorial" />
+                            <Border />
+                        </DockPanel>
+                </StackPanel>
+            </Canvas>
+        </Grid>
+    </Border>
+</Window>
+
+
+

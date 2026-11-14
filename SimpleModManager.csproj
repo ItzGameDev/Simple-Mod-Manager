@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>SimpleModManager</AssemblyName>
+    <RootNamespace>SimpleModManager</RootNamespace>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+    <Product>Simple Mod Manager</Product>
+    <Version>1.2.5</Version>
+  </PropertyGroup>
+  <ItemGroup>
+    <Resource Include="Assets\*.png;Assets\*.gif;Assets\app.ico;Assets\malachi-logo.jpg" />
+    <EmbeddedResource Include="Assets\Update Changer.dll" LogicalName="SimpleModManager.Mods.UpdateChanger.dll" />
+  </ItemGroup>
+</Project>
