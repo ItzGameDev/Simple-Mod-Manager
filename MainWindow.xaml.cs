@@ -36,8 +36,10 @@ public partial class MainWindow : Window
         ValidateSavedTheme();
         InitializeComponent();
         LoadSettings();
+        LoadAppUpdateSettings();
         UpdateTutorialButton();
         ApplyTheme(preferences.Theme, animate: false);
+        InitializeResponsiveLayout();
         initialized = true;
         Navigate(Page.Library);
         Loaded += FirstLoad;
@@ -54,6 +56,8 @@ public partial class MainWindow : Window
         await Scan(restoreSaved: true);
         if (!closeAfterOperation && IsVisible && !preferences.TutorialSeen)
             ShowTutorial(this, new RoutedEventArgs());
+        if (!closeAfterOperation && preferences.CheckForUpdates)
+            await CheckAppUpdate(manual: false);
     }
 
     private async Task Scan(bool restoreSaved)
@@ -413,5 +417,6 @@ public partial class MainWindow : Window
     }
     private void CloseWindow(object sender, RoutedEventArgs e) => Close();
 }
+
 
 

@@ -9,10 +9,14 @@
     <RootNamespace>SimpleModManager</RootNamespace>
     <ApplicationIcon>Assets\app.ico</ApplicationIcon>
     <Product>Simple Mod Manager</Product>
-    <Version>1.2.5</Version>
+    <Version>2.0.0</Version>
   </PropertyGroup>
   <ItemGroup>
-    <Resource Include="Assets\*.png;Assets\*.gif;Assets\app.ico;Assets\malachi-logo.jpg" />
+    <Compile Remove="Linux\**\*.cs" />
+    <None Remove="Linux\**" />
+    <Resource Remove="Assets\i-hate-ghosts.png" />
+    <Resource Include="Assets\*.png;Assets\*.gif;Assets\app.ico;Assets\malachi-logo.jpg" Exclude="Assets\i-hate-ghosts.png" />
     <EmbeddedResource Include="Assets\Update Changer.dll" LogicalName="SimpleModManager.Mods.UpdateChanger.dll" />
   </ItemGroup>
 </Project>
+

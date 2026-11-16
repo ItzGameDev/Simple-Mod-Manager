@@ -7,7 +7,7 @@ namespace SimpleModManager;
 public partial class MainWindow
 {
     private static bool CanQueue(Mod mod) => mod.HasPackage && !mod.Restricted && !mod.LocalFile &&
-        mod.Usage is not (UsageTag.Illegal or UsageTag.Restricted);
+        (mod.Usage is not (UsageTag.Illegal or UsageTag.Restricted) || mod.Id == "walk-simulator");
 
     private void QueueDetail(object sender, RoutedEventArgs e)
     {

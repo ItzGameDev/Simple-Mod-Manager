@@ -1,6 +1,6 @@
 # Simple Mod Manager
 
-Simple Mod Manager is an open-source Windows app for setting up BepInEx and managing community mods for Gorilla Tag on PCVR. It supports Steam and Meta Horizon PC installations. Check each mod’s details for compatibility.
+Simple Mod Manager 2.0.0 is an open-source app for setting up BepInEx and managing community mods for Gorilla Tag on PCVR. The Windows app supports Steam and Meta Horizon PC installations. The Linux app manages the Windows Steam edition through Proton. Check each mod’s details for compatibility.
 
 ## Getting started
 
@@ -8,6 +8,8 @@ Simple Mod Manager is an open-source Windows app for setting up BepInEx and mana
 2. The compact installer checks for the **.NET 10 Desktop Runtime (x64)** and downloads it from Microsoft when needed. That download requires internet access and may prompt for administrator approval.
 3. Open the manager. In **Game Setup**, select your Steam or Meta Horizon PC installation, or browse to the game folder. The manager installs BepInEx when needed. Launch Gorilla Tag once after setup, then close it before changing mods.
 4. Open **Mod Libary**, select a mod card, and choose **Install mod**. Check the details for dependencies and compatibility. Use the star to save a favorite.
+
+For Linux, extract `SimpleModManager-linux-x64.tar.gz` and run `./SimpleModManager.Linux`. Run `sh install.sh` for an application menu entry. The Linux archive includes the .NET runtime. Follow the [Linux setup instructions](Linux/README.md) to configure Steam Proton and the BepInEx DLL override.
 
 ## What you can do
 
@@ -19,7 +21,15 @@ Simple Mod Manager is an open-source Windows app for setting up BepInEx and mana
 | **Game Setup** | Detect the game folder, check BepInEx, open game folders, and access logs and config tools. |
 | **Settings** | Change themes and animation settings, import or export a custom theme, and open or resume the tutorial. |
 
-The manager verifies catalog downloads against their expected SHA-256 checksums. It installs managed mods in `BepInEx\plugins\SimpleModManager` and keeps disabled DLLs with a `.disabled` suffix. Some mods install a dependency automatically. For example, Mono Sandbox uses GorillaLibrary and Bark uses Utilla.
+The manager verifies catalog downloads against their expected SHA-256 checksums. It installs managed mods in `BepInEx/plugins/SimpleModManager` and keeps disabled DLLs with a `.disabled` suffix. BepInEx setup creates the plugins folder immediately. Old Modes and Bark install Utilla when needed. Gorilla Info Watch and Mono Sandbox install GorillaLibrary when needed. Walk Simulator is extracted from its ZIP, with checksums checked for both the archive and the plugin inside it.
+
+## App updates
+
+The app checks the project’s GitHub version.txt on startup. A newer published version offers a download and installation after you choose to update. The Windows app starts the setup EXE. The Linux app replaces a writable extracted installation and keeps the previous app folder as a backup. You can turn startup checks off in Settings or check manually.
+
+To publish an update, build the release with its new app version, upload its assets, then update version.txt in the GitHub repository to match. For this release, the local version.txt contains `2.0.0`. Future updates need a higher version, such as `2.0.1`. The updater uses the assets in the latest published GitHub release, so publish the new assets before changing version.txt.
+
+Use `SimpleModManagerSetup.exe` for the Windows asset and `SimpleModManager-linux-x64.tar.gz` for Linux. Each asset needs the SHA-256 digest supplied by GitHub, or an entry in a release asset named `SHA256SUMS.txt`. Checksums use the format `<64-character hash>  <asset filename>`.
 
 ## Troubleshooting
 
@@ -42,6 +52,8 @@ if ($LASTEXITCODE -eq 0) {
 ```
 
 The resulting installer is `dist\installer-build\SimpleModManagerSetup.exe`. The standalone executable in the same folder uses the shared .NET Desktop Runtime. The installer adds runtime detection and installation.
+
+Build the Linux archive with `pwsh -File Linux/package.ps1`. The script writes `dist/SimpleModManager-linux-x64.tar.gz`. Linux builds use the Avalonia project in Linux/, with installation and scanning services shared with the Windows app.
 
 ## Community and license
 

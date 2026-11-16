@@ -406,7 +406,7 @@ public partial class MainWindow
         SearchBox.Focus();
     }
 
-    private void ResizeCards(object sender, SizeChangedEventArgs e) => Cards.Columns = e.NewSize.Width >= 758 ? 3 : 2;
+    private void ResizeCards(object sender, SizeChangedEventArgs e) => Cards.Columns = Math.Clamp((int)(e.NewSize.Width / 250), 1, 3);
     private void CloseDetails(object sender, RoutedEventArgs e) => HideDetails();
     private void DismissDetailsFromBackdrop(object sender, System.Windows.Input.MouseButtonEventArgs e)
     {
@@ -417,3 +417,4 @@ public partial class MainWindow
     }
     private void OpenModSource(object sender, RoutedEventArgs e) { if (selectedMod?.Source is { } source) OpenLink(source); }
 }
+

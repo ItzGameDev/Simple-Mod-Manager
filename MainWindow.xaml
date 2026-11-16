@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         xmlns:local="clr-namespace:SimpleModManager"
-        Title="Simple Mod Manager" Icon="Assets/app.ico" Width="1190" Height="830" MinWidth="890" MinHeight="660"
+        Title="Simple Mod Manager" Icon="Assets/app.ico" Width="1190" Height="830" MinWidth="600" MinHeight="420"
         WindowStartupLocation="CenterScreen" WindowStyle="None" ResizeMode="CanResize"
         Background="Transparent" UseLayoutRounding="True" SnapsToDevicePixels="True"
         FontFamily="{StaticResource InterfaceFont}" FontSize="13" Foreground="{DynamicResource Text}"
@@ -46,11 +46,11 @@
 
             <Grid Grid.Row="1" x:Name="TourBackground">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="211" />
+                    <ColumnDefinition x:Name="SidebarColumn" Width="211" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <Border Background="{DynamicResource Rail}" BorderBrush="{DynamicResource Outline}" BorderThickness="0,0,1,0">
-                    <DockPanel Margin="14,24,14,16" LastChildFill="True">
+                    <DockPanel x:Name="SidebarContent" Margin="14,24,14,16" LastChildFill="True">
                         <StackPanel DockPanel.Dock="Bottom">
                             <Border Style="{StaticResource Panel}" Padding="12">
                                 <StackPanel>
@@ -120,7 +120,7 @@
                         </Grid.RowDefinitions>
                         <Border x:Name="LibraryHero" Style="{StaticResource Panel}" MinHeight="135" Margin="0,0,7,0">
                                 <Grid ClipToBounds="True">
-                                    <Viewbox Width="305" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,-9,0,-9" IsHitTestVisible="False">
+                                    <Viewbox x:Name="HeroArtwork" Width="305" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,-9,0,-9" IsHitTestVisible="False">
                                         <Canvas Width="310" Height="172">
                                             <Path Data="M 0,142 L 104,38 L 299,38 M 0,168 L 130,38 M 23,172 L 157,38 M 50,172 L 184,38 M 77,172 L 211,38 M 104,172 L 238,38 M 131,172 L 265,38 M 158,172 L 292,38 M 185,172 L 310,47 M 212,172 L 310,74 M 239,172 L 310,101 M 266,172 L 310,128"
                                                   Stroke="{DynamicResource Accent}" Opacity=".16" StrokeThickness="1" />
@@ -142,17 +142,21 @@
                                     <StackPanel VerticalAlignment="Center" Margin="23,16,22,16">
                                         <TextBlock x:Name="LibraryTitle" Text="Mod Libary" Style="{StaticResource Heading}" FontSize="34" />
                                         <TextBlock x:Name="LibraryIntro" Text="Browse and install community mods for Gorilla Tag on PC."
-                                                   Style="{StaticResource MutedText}" FontSize="14" Margin="0,7,0,0" />
+                                                   Style="{StaticResource MutedText}" TextWrapping="Wrap" FontSize="14" Margin="0,7,0,0" />
                                     </StackPanel>
                                 </Grid>
                             </Border>
 
                             <Grid Grid.Row="1" Margin="0,18,7,13" x:Name="CatalogTools">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
                                 </Grid.ColumnDefinitions>
-                                <Grid Margin="0,0,12,0">
+                                <Grid x:Name="SearchFrame" Margin="0,0,12,0">
                                     <TextBox x:Name="SearchBox" Style="{StaticResource SearchInput}" Height="40" TextChanged="SearchChanged"
                                              AutomationProperties.Name="Search mods" />
                                     <Path Data="M 6,1 A 5,5 0 1 1 5.99,1 M 9.6,9.6 L 14,14" Stroke="{DynamicResource Muted}" StrokeThickness="1.2"
@@ -167,14 +171,14 @@
                                 <Border x:Name="CategoryFilterFrame" Grid.Column="1" Style="{StaticResource Panel}" CornerRadius="12" Padding="3" Background="{DynamicResource Rail}">
                                     <Grid x:Name="FilterChoices" SizeChanged="AlignSelections" IsVisibleChanged="AlignVisibleSelection">
                                         <Canvas IsHitTestVisible="False"><Border x:Name="FilterOutline" Style="{StaticResource SlidingOutline}" /></Canvas>
-                                        <StackPanel Orientation="Horizontal">
+                                        <WrapPanel>
                                         <Button x:Name="AllFilter" Content="All mods" Tag="Active" Style="{StaticResource Filter}" Click="FilterMods" MinHeight="31" />
                                         <Button x:Name="GameplayFilter" Content="Gameplay" Style="{StaticResource Filter}" Click="FilterMods" MinHeight="31" />
                                         <Button x:Name="CosmeticsFilter" Content="Cosmetics" Style="{StaticResource Filter}" Click="FilterMods" MinHeight="31" />
                                         <Button x:Name="CaptureFilter" Content="Capture" Style="{StaticResource Filter}" Click="FilterMods" MinHeight="31" />
                                         <Button x:Name="UtilitiesFilter" Content="Utilities" Style="{StaticResource Filter}" Click="FilterMods" MinHeight="31" />
                                         <Button x:Name="LibraryFilter" Content="Libraries" Style="{StaticResource Filter}" Click="FilterMods" MinHeight="31" />
-                                        </StackPanel>
+                                        </WrapPanel>
                                     </Grid>
                                 </Border>
                             </Grid>
@@ -245,10 +249,13 @@
 
                     <ScrollViewer x:Name="SettingsPage" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
                         <StackPanel Margin="28,25,26,20">
-                            <DockPanel Margin="0,0,0,20">
-                                <Button x:Name="TutorialLaunchButton" DockPanel.Dock="Right" Content="Open tutorial" Click="ShowTutorial" Margin="0,0,8,0" />
+                            <WrapPanel Margin="0,0,0,20">
+                                <Button x:Name="TutorialLaunchButton" Content="Open tutorial" Click="ShowTutorial" Margin="0,0,8,0" />
                                 <TextBlock Text="Settings" Style="{StaticResource Heading}" />
-                            </DockPanel>
+                            </WrapPanel>
+                            <Border Style="{StaticResource Panel}" Padding="18" Margin="0,0,0,13">
+                                <StackPanel x:Name="AppUpdateSettings" />
+                            </Border>
                             <Border Style="{StaticResource Panel}" Padding="18" Margin="0,0,0,13">
                                 <StackPanel>
                                     <DockPanel><Button DockPanel.Dock="Right" Content="Custom theme" Click="OpenThemeEditor" /><TextBlock Text="Appearance" Style="{StaticResource SectionHeading}" /></DockPanel>
@@ -293,6 +300,8 @@
                         <DockPanel>
                             <Button x:Name="AdminButton" DockPanel.Dock="Right" Content="Run as administrator" Click="RestartElevated"
                                     Visibility="Collapsed" Margin="10,0,0,0" />
+                            <Button x:Name="AppUpdateButton" DockPanel.Dock="Right" Content="Download update" Click="DownloadAppUpdate"
+                                    Visibility="Collapsed" Margin="10,0,0,0" />
                             <Button x:Name="DismissStatusButton" DockPanel.Dock="Right" Style="{StaticResource Chrome}"
                                     Width="32" Height="30" Click="DismissStatus" AutomationProperties.Name="Dismiss status">
                                 <Path Style="{StaticResource ChromeGlyph}" Data="M 0,0 L 9,9 M 9,0 L 0,9" />
@@ -317,6 +326,7 @@
 
             <Grid Grid.Row="1" Panel.ZIndex="1" x:Name="DetailsOverlay" Visibility="Collapsed" Background="#B8090A0B"
                   MouseLeftButtonDown="DismissDetailsFromBackdrop" KeyboardNavigation.TabNavigation="Cycle">
+                <ScrollViewer x:Name="DetailsViewport" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="12">
                 <Border x:Name="DetailsCard" Style="{StaticResource Panel}" CornerRadius="23" Width="480" HorizontalAlignment="Center" VerticalAlignment="Center">
                     <Border.Effect><DropShadowEffect BlurRadius="32" ShadowDepth="8" Direction="270" Opacity=".55" /></Border.Effect>
                     <StackPanel Margin="20">
@@ -343,10 +353,12 @@
                         </DockPanel>
                     </StackPanel>
                 </Border>
+                </ScrollViewer>
             </Grid>
 
             <Grid Grid.Row="1" Panel.ZIndex="2" x:Name="DownloadOverlay" Visibility="Collapsed" Background="#C3090A10"
                   MouseLeftButtonDown="DismissDownloadFromBackdrop" KeyboardNavigation.TabNavigation="Cycle">
+                <ScrollViewer x:Name="DownloadViewport" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="12">
                 <Border x:Name="DownloadCard" Style="{StaticResource Panel}" CornerRadius="23" Width="465" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="24">
                     <Border.Effect><DropShadowEffect BlurRadius="34" ShadowDepth="9" Direction="270" Opacity=".65" /></Border.Effect>
                     <StackPanel>
@@ -371,6 +383,7 @@
                         <Button x:Name="CancelDownloadButton" Content="Cancel" HorizontalAlignment="Right" Margin="0,17,0,0" Click="CancelDownload" />
                     </StackPanel>
                 </Border>
+                </ScrollViewer>
             </Grid>
             <Canvas Grid.Row="1" x:Name="TutorialOverlay" Visibility="Collapsed" ClipToBounds="True"
                     SizeChanged="TutorialLayoutChanged" KeyboardNavigation.TabNavigation="Cycle">
@@ -401,6 +414,7 @@
         </Grid>
     </Border>
 </Window>
+
 
 
 
