@@ -1,0 +1,48 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="SimpleModManager.Linux.MainWindow"
+        Title="Simple Mod Manager" Width="1120" Height="760" MinWidth="620" MinHeight="460"
+        Background="{DynamicResource Backdrop}" Foreground="#F1F3F5"
+        WindowStartupLocation="CenterScreen" Icon="/Assets/app.ico">
+  <Grid ColumnDefinitions="180,*">
+    <Border Background="{DynamicResource Rail}" Padding="12,20" BorderBrush="#303740" BorderThickness="0,0,1,0">
+      <DockPanel LastChildFill="True">
+        <StackPanel DockPanel.Dock="Bottom" Spacing="6" Margin="0,16,0,0">
+          <TextBlock x:Name="GameLabel" Text="Steam / Proton" FontWeight="SemiBold" />
+          <TextBlock x:Name="LoaderLabel" Text="Choose a game folder" FontSize="12" TextWrapping="Wrap" Foreground="#ADB4BF" />
+        </StackPanel>
+        <StackPanel>
+          <TextBlock Text="Simple Mod Manager" FontWeight="Bold" FontSize="16" TextWrapping="Wrap" Margin="5,0,0,25" />
+          <Button x:Name="LibraryNav" Classes="nav" Content="Mod Libary" Click="LibraryClicked" />
+          <Button x:Name="InstalledNav" Classes="nav" Content="Installed Mods" Click="InstalledClicked" />
+          <Button x:Name="ToolsNav" Classes="nav" Content="Mod Tools" Click="ToolsClicked" />
+          <Button x:Name="SetupNav" Classes="nav" Content="Game Setup" Click="SetupClicked" />
+          <Button x:Name="SettingsNav" Classes="nav" Content="Settings" Click="SettingsClicked" />
+        </StackPanel>
+      </DockPanel>
+    </Border>
+    <Grid Grid.Column="1" RowDefinitions="*,Auto,Auto">
+      <ScrollViewer x:Name="PageScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+        <StackPanel x:Name="PageBody" Margin="24" Spacing="12" />
+      </ScrollViewer>
+      <Border Grid.Row="1" x:Name="OperationPanel" IsVisible="False" Background="{DynamicResource Rail}" Padding="16">
+        <StackPanel Spacing="8">
+          <TextBlock x:Name="OperationLabel" TextWrapping="Wrap" />
+          <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+            <ProgressBar x:Name="OperationBar" Maximum="100" Height="7" VerticalAlignment="Center" />
+            <Button Grid.Column="1" Content="Cancel" Click="CancelClicked" />
+          </Grid>
+        </StackPanel>
+      </Border>
+      <Border Grid.Row="2" Background="{DynamicResource Rail}" Padding="18,12" BorderBrush="#303740" BorderThickness="0,1,0,0">
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+          <StackPanel Spacing="4">
+            <TextBlock Text="Want your mod in the library?" FontWeight="SemiBold" TextWrapping="Wrap" />
+            <TextBlock x:Name="StatusLabel" Text="Share it with us on Discord." Foreground="#ADB4BF" TextWrapping="Wrap" FontSize="12" />
+          </StackPanel>
+          <Button Grid.Column="1" Content="Request a mod ↗" Classes="primary" Click="DiscordClicked" VerticalAlignment="Center" />
+        </Grid>
+      </Border>
+    </Grid>
+  </Grid>
+</Window>

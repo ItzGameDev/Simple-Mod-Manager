@@ -1,0 +1,52 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="SimpleModManager.Linux.App"
+             RequestedThemeVariant="Dark">
+  <Application.Styles>
+    <FluentTheme />
+    <Style Selector="Window">
+      <Setter Property="FontFamily" Value="Inter, Noto Sans, DejaVu Sans" />
+      <Setter Property="FontSize" Value="13" />
+    </Style>
+    <Style Selector="Button">
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Padding" Value="13,9" />
+      <Setter Property="Background" Value="#252C35" />
+      <Setter Property="BorderBrush" Value="#394351" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Foreground" Value="#F1F3F5" />
+    </Style>
+    <Style Selector="Button:pointerover">
+      <Setter Property="Background" Value="#303946" />
+    </Style>
+    <Style Selector="Button.modcard">
+      <Setter Property="Background" Value="#1C222B" />
+      <Setter Property="CornerRadius" Value="16" />
+    </Style>
+    <Style Selector="Button.modcard:pointerover">
+      <Setter Property="Background" Value="#252E39" />
+    </Style>
+    <Style Selector="Button.primary">
+      <Setter Property="Background" Value="{DynamicResource Accent}" />
+      <Setter Property="Foreground" Value="#101610" />
+    </Style>
+    <Style Selector="Button.primary:pointerover">
+      <Setter Property="Background" Value="{DynamicResource Accent}" />
+      <Setter Property="Foreground" Value="#101610" />
+    </Style>
+    <Style Selector="Button.nav">
+      <Setter Property="HorizontalAlignment" Value="Stretch" />
+      <Setter Property="HorizontalContentAlignment" Value="Left" />
+      <Setter Property="Margin" Value="0,0,0,6" />
+      <Setter Property="Background" Value="Transparent" />
+      <Setter Property="BorderThickness" Value="0" />
+    </Style>
+    <Style Selector="Button.nav.active">
+      <Setter Property="Background" Value="{DynamicResource Selection}" />
+      <Setter Property="Foreground" Value="{DynamicResource Accent}" />
+    </Style>
+    <Style Selector="TextBox">
+      <Setter Property="CornerRadius" Value="10" />
+    </Style>
+  </Application.Styles>
+</Application>
