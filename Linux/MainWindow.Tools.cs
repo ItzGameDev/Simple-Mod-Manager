@@ -10,6 +10,9 @@ namespace SimpleModManager.Linux;
 
 public partial class MainWindow
 {
+    private TextBlock? discordStatus;
+    private Button? discordSignInButton;
+
     private static readonly Dictionary<string, (string Accent, string Tint)> Themes = new()
     {
         ["Simple"] = ("#DBF4A9", "#29382C"), ["Liquid glass"] = ("#EFEFEF", "#090909"),
@@ -108,6 +111,10 @@ public partial class MainWindow
     private void RenderSettings()
     {
         Heading("Settings", "Choose a theme and animation preferences.");
+        PageBody.Children.Add(Text("Discord account", muted: false));
+        discordStatus = Text(AccountStatus);
+        PageBody.Children.Add(discordStatus);
+        discordSignInButton = Button(Row(PageBody), access.Discord.ButtonLabel, async () => await ChangeAccount());
         var themes = Row(PageBody);
         foreach (var (name, colors) in Themes)
         {
@@ -163,7 +170,7 @@ public partial class MainWindow
         var lessons = new[]
         {
             ("Game Setup", "Choose your Steam installation and install BepInEx. Copy the Proton winhttp launch setting into Steam."),
-            ("Mod Libary", "Search or choose a category. Open a card to install it and use ☆ Favorite to save it."),
+            ("Official Mods", "Search or choose a category. Open a card to install it and use ☆ Favorite to save it."),
             ("Installed Mods", "Close Gorilla Tag before enabling, disabling, or removing DLLs. Local plugins appear here too."),
             ("Mod Tools", "Profiles save enabled plugins. Inventory shows duplicate IDs. The Israel Auth scan checks plugin strings."),
             ("Settings", "Choose your theme here. Settings and mod profiles are saved in your Linux application data folder.")

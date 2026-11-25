@@ -6,7 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyName>SimpleModManager.Linux</AssemblyName>
     <RootNamespace>SimpleModManager.Linux</RootNamespace>
-    <Version>2.0.0</Version>
+    <Version>3.0.0</Version>
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
   </PropertyGroup>
   <ItemGroup>
@@ -14,6 +14,11 @@
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.23" />
     <Compile Include="../Services/*.cs" Link="Services/%(Filename)%(Extension)" />
     <AvaloniaResource Include="../Assets/*.png;../Assets/*.jpg;../Assets/app.ico" Exclude="../Assets/i-hate-ghosts.png" Link="Assets/%(Filename)%(Extension)" />
-    <EmbeddedResource Include="../Assets/Update Changer.dll" LogicalName="SimpleModManager.Mods.UpdateChanger.dll" />
+    <EmbeddedResource Include="../Assets/RIPPER.dll" LogicalName="SimpleModManager.Mods.RIPPER.dll" />
+    <EmbeddedResource Include="../Assets/Leg Arms.dll" LogicalName="SimpleModManager.Mods.GorillaLegs.dll" />
+    <EmbeddedResource Include="../Assets/MicInputSwitcher.dll" LogicalName="SimpleModManager.Mods.MicInputSwitcher.dll" />
+    <EmbeddedResource Include="../Assets/xyfer..dll" LogicalName="SimpleModManager.Mods.XyferFree.dll" />
+    <EmbeddedResource Include="../Assets/ForeverCosmetix.dll" LogicalName="SimpleModManager.Mods.CosmeticX.dll" />
+    <EmbeddedResource Include="../Assets/WalkSimulator.dll" LogicalName="SimpleModManager.Mods.WalkSimulator.dll" />
   </ItemGroup>
 </Project>

@@ -2,6 +2,8 @@ using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
 using Avalonia;
+using Avalonia.Animation;
+using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
@@ -10,6 +12,7 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Platform.Storage;
+using Avalonia.Styling;
 using Avalonia.Threading;
 
 namespace SimpleModManager.Linux;
@@ -35,6 +38,15 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer gradientTimer = new() { Interval = TimeSpan.FromMilliseconds(40) };
     private double gradientPhase;
     private LinearGradientBrush? backgroundGradient;
+    private readonly ManagerAccess access = new();
+    private readonly DispatcherTimer guestReminder = new() { Interval = ManagerAccess.ReminderInterval };
+    private bool managerStarted;
+    private Task<byte[]?>? shownAvatar;
+    private Bitmap? avatarBitmap;
+    private readonly Stopwatch gateClock = Stopwatch.StartNew();
+    private readonly ImageBrush accountAvatar = new() { Stretch = Stretch.UniformToFill };
+    private readonly RotateTransform gateOrbit = new();
+    private bool openingManager;
 
     public MainWindow() : this(new PreferencesStore()) { }
 
@@ -43,15 +55,21 @@ public partial class MainWindow : Window
         store = settings;
         preferences = store.Read();
         InitializeComponent();
+        AccountAvatarImage.Fill = accountAvatar;
+        GateOrbitRing.RenderTransform = gateOrbit;
         ApplyTheme();
         gradientTimer.Tick += (_, _) =>
         {
-            if (!preferences.Motion || WindowState == WindowState.Minimized || backgroundGradient is null) return;
+            if (!preferences.Motion || WindowState == WindowState.Minimized) return;
+            if (AccountGate.IsVisible)
+                gateOrbit.Angle = gateClock.Elapsed.TotalSeconds * 22.5 % 360;
+            if (backgroundGradient is null) return;
             gradientPhase += .002;
             backgroundGradient.StartPoint = new RelativePoint(.1 + .22 * Math.Sin(gradientPhase), 0, RelativeUnit.Relative);
             backgroundGradient.EndPoint = new RelativePoint(.8 + .18 * Math.Cos(gradientPhase), 1, RelativeUnit.Relative);
         };
         gradientTimer.Start();
+        guestReminder.Tick += (_, _) => Status("Log in to get more downloads!");
         SizeChanged += (_, _) => ResizeCards();
         PageScroll.SizeChanged += (_, _) => ResizeCards();
         Closing += (_, e) =>
@@ -65,9 +83,13 @@ public partial class MainWindow : Window
         {
             pageRead?.Cancel();
             gradientTimer.Stop();
+            guestReminder.Stop();
+            access.Discord.Cancel();
+            accountAvatar.Source = null;
+            avatarBitmap?.Dispose();
             foreach (var image in images.Values) image.Dispose();
         };
-        Opened += async (_, _) =>
+        Opened += (_, _) =>
         {
             var screen = Screens.ScreenFromWindow(this);
             if (screen is not null)
@@ -79,12 +101,12 @@ public partial class MainWindow : Window
                 Width = Math.Min(Width, Math.Max(MinWidth, width * .92));
                 Height = Math.Min(Height, Math.Max(MinHeight, height * .92));
             }
-            await Discover();
-            if (preferences.CheckForUpdates && preferences.UpdateRepository is not null)
-                await CheckAppUpdate(false);
+            GateSignInButton.Focus();
+            _ = RevealAccountControl(GateCard, 430);
         };
         KeyDown += (_, e) =>
         {
+            if (!access.CanEnter) return;
             if (e.Key == Key.Escape) { Back(); e.Handled = true; }
             if (e.Key == Key.F && e.KeyModifiers.HasFlag(KeyModifiers.Control) && page is "library" or "installed")
             {
@@ -94,6 +116,144 @@ public partial class MainWindow : Window
         };
         Go("library", RenderLibrary, true);
     }
+
+    private async Task StartManager()
+    {
+        if (managerStarted || !access.CanEnter || !IsVisible) return;
+        managerStarted = true;
+        await Discover();
+        if (preferences.CheckForUpdates && preferences.UpdateRepository is not null)
+            await CheckAppUpdate(false);
+    }
+
+    private async void ToggleDiscordSignIn(object? sender, RoutedEventArgs e) => await ChangeAccount();
+
+    private async Task ChangeAccount()
+    {
+        if (operation is not null || openingManager) return;
+        await access.ToggleSignIn(RefreshAccount);
+        await StartManager();
+    }
+
+    private async void EnterAsGuest(object? sender, RoutedEventArgs e)
+    {
+        access.EnterAsGuest();
+        RefreshAccount();
+        await StartManager();
+    }
+
+    private void RefreshAccount()
+    {
+        var discord = access.Discord;
+        var wasLocked = !ManagerContent.IsVisible;
+        GateStatus.Text = discord.Status == "Signed out" ? "Sign in to get unlimited mod downloads." : discord.Status;
+        GateSignInButton.Content = discord.ButtonLabel;
+        if (discordStatus is not null) discordStatus.Text = AccountStatus;
+        if (discordSignInButton is not null) discordSignInButton.Content = discord.ButtonLabel;
+        AccountWelcome.Text = access.Welcome;
+        AccountPortrait.IsVisible = discord.DisplayName is not null;
+        if (shownAvatar != discord.Avatar)
+        {
+            shownAvatar = discord.Avatar;
+            accountAvatar.Source = null;
+            avatarBitmap?.Dispose();
+            avatarBitmap = null;
+            if (shownAvatar is { } avatar)
+                _ = ShowAccountAvatar(avatar);
+        }
+        GuestAccountButton.IsVisible = access.IsGuest;
+        ManagerContent.IsVisible = access.CanEnter;
+        GateProgress.Opacity = discord.IsPending ? 1 : 0;
+        GateProgress.IsIndeterminate = discord.IsPending && preferences.Motion;
+        GateProgress.Value = discord.IsPending ? 100 : 0;
+        if (wasLocked != !access.CanEnter)
+        {
+            if (access.CanEnter)
+                _ = OpenManagerVisually();
+            else
+            {
+                AccountGate.IsVisible = true;
+                AccountGate.IsHitTestVisible = true;
+                _ = RevealAccountControl(GateCard, 420);
+                GateSignInButton.Focus();
+            }
+        }
+        if (access.IsGuest && IsVisible) guestReminder.Start();
+        else guestReminder.Stop();
+    }
+
+    private async Task OpenManagerVisually()
+    {
+        AccountGate.IsHitTestVisible = false;
+        if (!preferences.Motion)
+        {
+            AccountGate.IsVisible = false;
+            return;
+        }
+
+        openingManager = true;
+        try
+        {
+            await Task.WhenAll(
+                AnimateAccountOpacity(ManagerContent, 0.25, 1, 720),
+                AnimateAccountOpacity(AccountGate, 1, 0, 490));
+        }
+        finally
+        {
+            openingManager = false;
+        }
+    }
+
+    private async Task ShowAccountAvatar(Task<byte[]?> avatar)
+    {
+        var bytes = await avatar;
+        if (bytes is null || shownAvatar != avatar || !IsVisible)
+            return;
+        try
+        {
+            using var stream = new MemoryStream(bytes);
+            avatarBitmap = Bitmap.DecodeToWidth(stream, 48);
+            accountAvatar.Source = avatarBitmap;
+            await RevealAccountControl(AccountPortrait, 250);
+        }
+        catch (Exception ex) when (ex is IOException or ArgumentException or InvalidOperationException or NotSupportedException)
+        {
+            // The portrait already shows a fallback glyph.
+        }
+    }
+
+    private Task RevealAccountControl(Control control, int duration)
+    {
+        if (!preferences.Motion)
+            return Task.CompletedTask;
+        return AnimateAccountOpacity(control, 0.25, 1, duration);
+    }
+
+    private async Task AnimateAccountOpacity(Control control, double from, double to, int duration)
+    {
+        if (to == 0) control.Opacity = 0;
+        try
+        {
+            await new Animation
+            {
+                Duration = TimeSpan.FromMilliseconds(duration),
+                Easing = new SineEaseInOut(),
+                Children =
+                {
+                    new KeyFrame { Cue = new Cue(0), Setters = { new Setter(OpacityProperty, from) } },
+                    new KeyFrame { Cue = new Cue(1), Setters = { new Setter(OpacityProperty, to) } }
+                }
+            }.RunAsync(control);
+            if (to == 0) control.IsVisible = false;
+        }
+        finally
+        {
+            if (to == 0) control.Opacity = 1;
+        }
+    }
+
+    private string AccountStatus => access.IsGuest && access.Discord.Status == "Signed out"
+        ? "Guest mode · 5 downloads per hour. Log in to get more downloads!" : access.Discord.Status;
 
     private static bool ReferenceOnly(Mod mod) => mod.Restricted || mod.Id is "ii-reborn" or "hamburbur" or "malachi-reborn";
     private static bool Queueable(Mod mod) => !ReferenceOnly(mod) && mod.HasPackage && !mod.LocalFile;
@@ -142,7 +302,7 @@ public partial class MainWindow : Window
         PageScroll.Offset = default;
         if (!root) Button(PageBody, "‹ Back", Back);
         render();
-        foreach (var (button, key) in new[] { (LibraryNav, "library"), (InstalledNav, "installed"),
+        foreach (var (button, key) in new[] { (LibraryNav, "library"), (UnofficialNav, "unofficial"), (InstalledNav, "installed"),
             (ToolsNav, "tools"), (SetupNav, "setup"), (SettingsNav, "settings") })
             button.Classes.Set("active", key == name);
     }
@@ -265,14 +425,14 @@ public partial class MainWindow : Window
 
     private void RenderLibrary()
     {
-        Heading(page == "installed" ? "Installed Mods" : collection ?? (favoritesOnly ? "Favorites" : "Mod Libary"),
+        Heading(page == "installed" ? "Installed Mods" : collection ?? (favoritesOnly ? "Favorites" : "Official Mods"),
             page == "installed" ? "Plugins in your selected game folder." : "Browse community mods for Gorilla Tag.");
         var search = Input(PageBody, "Search mods", query);
         search.TextChanged += (_, _) => { query = search.Text ?? ""; RenderCards(); };
         if (page != "installed")
         {
             var categories = Row(PageBody);
-            foreach (var item in new[] { "All mods", "Gameplay", "Cosmetics", "Utilities", "Capture", "Libraries" })
+            foreach (var item in new[] { "All mods", "Mod Menus", "Cosmetics", "Utilities", "Capture", "Libraries" })
                 Button(categories, item, () => { category = item; RenderCards(); });
         }
         cards = new WrapPanel();
@@ -417,7 +577,7 @@ public partial class MainWindow : Window
                 await Run("Install " + mod.Name, async (report, token) =>
                 {
                     await Installer.InstallLoader(target, report, token);
-                    Record(target, "Install " + mod.Name, await Installer.InstallMod(target, mod, report, token, path));
+                    Record(target, "Install " + mod.Name, await access.InstallMod(target, mod, report, token, path));
                 });
                 Go("details", () => RenderDetails(mod));
             }, true).IsEnabled = !ReferenceOnly(mod);
@@ -490,6 +650,9 @@ public partial class MainWindow : Window
         catch (Exception ex) when (ex is System.ComponentModel.Win32Exception or InvalidOperationException) { Status(ex.Message); }
     }
 
+    private void UnofficialClicked(object? sender, RoutedEventArgs e) =>
+        Go("unofficial", () => Heading("Unofficial Mods", "Coming soon.."), true);
+
     private void LibraryClicked(object? sender, RoutedEventArgs e) => Go("library", RenderLibrary, true);
     private void InstalledClicked(object? sender, RoutedEventArgs e) => Go("installed", RenderLibrary, true);
     private void ToolsClicked(object? sender, RoutedEventArgs e) => Go("tools", RenderTools, true);
@@ -498,3 +661,4 @@ public partial class MainWindow : Window
     private void DiscordClicked(object? sender, RoutedEventArgs e) => OpenLink(Catalog.Discord);
     private void CancelClicked(object? sender, RoutedEventArgs e) => operation?.Cancel();
 }
+

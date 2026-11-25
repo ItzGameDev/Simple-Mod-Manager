@@ -38,9 +38,10 @@ public partial class MainWindow
                         var mod = Catalog.Mods.FirstOrDefault(mod => mod.Id == job.ModId && Queueable(mod)) ??
                             throw new InvalidOperationException("This package is unavailable.");
                         await Installer.InstallLoader(target, report, token);
-                        Record(target, "Install " + mod.Name, await Installer.InstallMod(target, mod, report, token));
+                        Record(target, "Install " + mod.Name, await access.InstallMod(target, mod, report, token));
                         Dispatcher.UIThread.Invoke(() => UpdateQueue(job, "Complete"));
                     }
+                    catch (GuestDownloadLimitException) { throw; }
                     catch (Exception ex) when (!token.IsCancellationRequested &&
                         ex is IOException or InvalidDataException or System.Net.Http.HttpRequestException or InvalidOperationException or OperationCanceledException)
                     {

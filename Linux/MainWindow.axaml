@@ -4,16 +4,30 @@
         Title="Simple Mod Manager" Width="1120" Height="760" MinWidth="620" MinHeight="460"
         Background="{DynamicResource Backdrop}" Foreground="#F1F3F5"
         WindowStartupLocation="CenterScreen" Icon="/Assets/app.ico">
-  <Grid ColumnDefinitions="180,*">
+  <Grid>
+  <Grid x:Name="ManagerContent" ColumnDefinitions="180,*" IsVisible="False">
     <Border Background="{DynamicResource Rail}" Padding="12,20" BorderBrush="#303740" BorderThickness="0,0,1,0">
       <DockPanel LastChildFill="True">
         <StackPanel DockPanel.Dock="Bottom" Spacing="6" Margin="0,16,0,0">
+          <Grid ColumnDefinitions="Auto,*" ColumnSpacing="7" MinHeight="24" Margin="0,0,0,3">
+            <Panel x:Name="AccountPortrait" Width="24" Height="24" IsVisible="False" AutomationProperties.Name="Discord profile picture">
+              <Ellipse Fill="{DynamicResource Selection}" />
+              <Path Data="M 3,3 A 2,2 0 1 1 7,3 A 2,2 0 1 1 3,3 M 1,10 C 1,6 9,6 9,10 Z"
+                    Fill="{DynamicResource Accent}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+              <Ellipse x:Name="AccountAvatarImage" />
+            </Panel>
+            <TextBlock Grid.Column="1" x:Name="AccountWelcome" VerticalAlignment="Center" Foreground="#ADB4BF"
+                       FontSize="12" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding #AccountWelcome.Text}" />
+          </Grid>
           <TextBlock x:Name="GameLabel" Text="Steam / Proton" FontWeight="SemiBold" />
           <TextBlock x:Name="LoaderLabel" Text="Choose a game folder" FontSize="12" TextWrapping="Wrap" Foreground="#ADB4BF" />
         </StackPanel>
         <StackPanel>
-          <TextBlock Text="Simple Mod Manager" FontWeight="Bold" FontSize="16" TextWrapping="Wrap" Margin="5,0,0,25" />
-          <Button x:Name="LibraryNav" Classes="nav" Content="Mod Libary" Click="LibraryClicked" />
+          <TextBlock Text="Simple Mod Manager" FontWeight="Bold" FontSize="16" TextWrapping="Wrap" Margin="5,0,0,20" />
+          <Button x:Name="GuestAccountButton" Content="Sign in with Discord" IsVisible="False"
+                  Click="SettingsClicked" Margin="0,0,0,10" />
+          <Button x:Name="LibraryNav" Classes="nav" Content="Official Mods" Click="LibraryClicked" />
+          <Button x:Name="UnofficialNav" Classes="nav" Content="Unofficial Mods" Click="UnofficialClicked" />
           <Button x:Name="InstalledNav" Classes="nav" Content="Installed Mods" Click="InstalledClicked" />
           <Button x:Name="ToolsNav" Classes="nav" Content="Mod Tools" Click="ToolsClicked" />
           <Button x:Name="SetupNav" Classes="nav" Content="Game Setup" Click="SetupClicked" />
@@ -45,4 +59,44 @@
       </Border>
     </Grid>
   </Grid>
+  <Grid x:Name="AccountGate" ClipToBounds="True">
+    <Panel IsHitTestVisible="False">
+      <Ellipse Width="510" Height="510" HorizontalAlignment="Center" VerticalAlignment="Center" Stroke="{DynamicResource Accent}" Opacity=".11" />
+      <Ellipse Width="620" Height="620" HorizontalAlignment="Center" VerticalAlignment="Center" Stroke="{DynamicResource Accent}" Opacity=".075" StrokeDashArray="2,7" />
+      <Ellipse Width="735" Height="735" HorizontalAlignment="Center" VerticalAlignment="Center" Stroke="{DynamicResource Accent}" Opacity=".045" />
+    </Panel>
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto">
+      <Border x:Name="GateCard" Background="{DynamicResource Rail}" CornerRadius="18" Padding="30,23,30,22"
+              BorderThickness="1" BorderBrush="#394351" BoxShadow="0 12 32 0 #60000000"
+              Margin="16" Width="406" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <StackPanel>
+          <Panel Width="84" Height="84" HorizontalAlignment="Center" Margin="0,0,0,15">
+            <Ellipse Stroke="{DynamicResource Accent}" Opacity=".22" />
+            <Panel x:Name="GateOrbitRing" RenderTransformOrigin="50%,50%">
+              <Path Data="M 42,0 A 42,42 0 0 1 82,29 M 42,84 A 42,42 0 0 1 2,55"
+                    Stroke="{DynamicResource Accent}" StrokeThickness="1.5" />
+              <Ellipse Width="6" Height="6" Fill="{DynamicResource Accent}" HorizontalAlignment="Center" VerticalAlignment="Top" />
+            </Panel>
+            <Border Width="56" Height="56" CornerRadius="17" Background="{DynamicResource Selection}"
+                    HorizontalAlignment="Center" VerticalAlignment="Center">
+              <Path Data="M 0,4 L 5,0 L 5,5 L 10,1 L 10,8 L 5,12 L 5,7 L 0,11 Z"
+                    Width="22" Height="25" Stretch="Uniform" Fill="{DynamicResource Accent}"
+                    HorizontalAlignment="Center" VerticalAlignment="Center" />
+            </Border>
+          </Panel>
+          <TextBlock Text="Welcome to Simple" FontSize="27" FontWeight="SemiBold" TextAlignment="Center" TextWrapping="Wrap" />
+          <TextBlock x:Name="GateStatus" Text="Sign in to get unlimited mod downloads." Foreground="#ADB4BF"
+                     TextAlignment="Center" TextWrapping="Wrap" Margin="0,8,0,20" />
+          <Button x:Name="GateSignInButton" Classes="primary" Content="Sign in with Discord"
+                  Click="ToggleDiscordSignIn" MinHeight="42" HorizontalAlignment="Stretch" HorizontalContentAlignment="Center" />
+          <ProgressBar x:Name="GateProgress" Height="3" Margin="0,8,0,0" Opacity="0" IsHitTestVisible="False" />
+          <Button Content="Continue as guest" Click="EnterAsGuest" HorizontalAlignment="Center" Margin="0,6,0,0" />
+          <TextBlock Text="Guests can download 5 mods per hour." Foreground="#ADB4BF" TextWrapping="Wrap"
+                     TextAlignment="Center" Margin="0,5,0,0" />
+        </StackPanel>
+      </Border>
+    </ScrollViewer>
+  </Grid>
+  </Grid>
 </Window>
+
