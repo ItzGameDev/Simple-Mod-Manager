@@ -6,7 +6,8 @@ namespace SimpleModManager;
 internal sealed record Preferences(string? GamePath = null, string Theme = "Simple",
     bool Motion = true, bool AnimatedBanners = true, bool TutorialSeen = false, bool CompactLibrary = false, string[]? Favorites = null,
     ModPreset[]? Profiles = null, ModCollection[]? Collections = null, HistoryEntry[]? History = null,
-    DownloadRequest[]? Queue = null, int TutorialPosition = 0, CustomPalette? CustomTheme = null, bool? TutorialInProgress = null);
+    DownloadRequest[]? Queue = null, int TutorialPosition = 0, CustomPalette? CustomTheme = null, bool? TutorialInProgress = null,
+    string? UpdateRepository = AppUpdates.DefaultRepository, string? UpdateVersionUrl = AppUpdates.DefaultVersionUrl, bool CheckForUpdates = true);
 
 internal sealed class PreferencesStore(string? storagePath = null)
 {
@@ -17,7 +18,12 @@ internal sealed class PreferencesStore(string? storagePath = null)
         try
         {
             var preferences = JsonSerializer.Deserialize<Preferences>(File.ReadAllText(path)) ?? new();
-            return preferences.Theme == "Charcoal" ? preferences with { Theme = "Simple" } : preferences;
+            return preferences with
+            {
+                Theme = preferences.Theme == "Charcoal" ? "Simple" : preferences.Theme,
+                UpdateRepository = preferences.UpdateRepository ?? AppUpdates.DefaultRepository,
+                UpdateVersionUrl = preferences.UpdateVersionUrl ?? AppUpdates.DefaultVersionUrl
+            };
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
         {

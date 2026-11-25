@@ -2,6 +2,7 @@ using System.IO;
 using System.Reflection.PortableExecutable;
 using System.Text.RegularExpressions;
 using Microsoft.Win32;
+using System.Runtime.Versioning;
 
 namespace SimpleModManager;
 
@@ -11,7 +12,7 @@ internal sealed record GameInstall(string Path, Storefront Store)
 {
     public string Label => Store switch
     {
-        Storefront.Steam => "Steam",
+        Storefront.Steam => OperatingSystem.IsLinux() ? "Steam / Proton" : "Steam",
         Storefront.Meta => "Meta Horizon PC",
         _ => "PC installation"
     };
@@ -23,6 +24,10 @@ internal static partial class GameDiscovery
 
     public static IReadOnlyList<GameInstall> Find()
     {
+        if (OperatingSystem.IsLinux())
+            return FindLinux();
+        if (!OperatingSystem.IsWindows())
+            return [];
         var found = new Dictionary<string, GameInstall>(StringComparer.OrdinalIgnoreCase);
         void Add(string directory, Storefront store)
         {
@@ -107,6 +112,38 @@ internal static partial class GameDiscovery
         return null;
     }
 
+    private static IReadOnlyList<GameInstall> FindLinux()
+    {
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        var roots = new[]
+        {
+            Path.Combine(home, ".local", "share", "Steam"),
+            Path.Combine(home, ".steam", "steam"),
+            Path.Combine(home, ".steam", "root"),
+            Path.Combine(home, ".var", "app", "com.valvesoftware.Steam", ".local", "share", "Steam")
+        };
+        var libraries = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var steam in roots)
+        {
+            var root = new DirectoryInfo(steam);
+            try
+            {
+                var resolved = root.LinkTarget is null ? steam : root.ResolveLinkTarget(true)?.FullName ?? steam;
+                libraries.Add(resolved);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { continue; }
+            foreach (Match match in LibraryPath().Matches(ReadText(Path.Combine(steam, "steamapps", "libraryfolders.vdf"))))
+            {
+                var path = match.Groups[1].Value.Replace(@"\\", @"\");
+                if (Path.IsPathFullyQualified(path))
+                    libraries.Add(path);
+            }
+        }
+        return libraries.Select(library => Open(Path.Combine(library, "steamapps", "common", "Gorilla Tag"), Storefront.Steam))
+            .OfType<GameInstall>().DistinctBy(game => game.Path, StringComparer.Ordinal).ToArray();
+    }
+
+    [SupportedOSPlatform("windows")]
     private static string? ReadRegistry(RegistryKey root, string path, string value)
     {
         using var key = root.OpenSubKey(path);

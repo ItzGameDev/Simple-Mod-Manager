@@ -17,7 +17,7 @@ internal static class ModWorkspace
     internal static readonly string DataFolder = Path.Combine(Environment.GetFolderPath(
         Environment.SpecialFolder.LocalApplicationData), "SimpleModManager");
     private const string DisabledSuffix = ".disabled";
-    private const string ConfigPath = @"BepInEx\config";
+    private static readonly string ConfigPath = Path.Combine("BepInEx", "config");
     private const long ConfigLimit = 32 * 1024 * 1024;
 
     public static string ActiveName(string relative) => relative.EndsWith(DisabledSuffix, StringComparison.OrdinalIgnoreCase)
@@ -56,7 +56,7 @@ internal static class ModWorkspace
             if (!desired.TryGetValue(activeName, out var enable) || enable != item.Disabled)
                 continue;
             var mod = Catalog.Mods.FirstOrDefault(mod => mod.Id == item.CatalogId);
-            if (enable && (mod is { Restricted: true } || mod?.Usage == UsageTag.Illegal))
+            if (enable && (mod is { Restricted: true } || mod?.Usage == UsageTag.Illegal && mod.Id != "walk-simulator"))
                 throw new InvalidOperationException($"{mod!.Name} is unavailable for activation from this panel.");
             if (enable && mod is { SteamOnly: true } && game.Store == Storefront.Meta)
                 throw new InvalidOperationException($"{mod.Name} is published for Steam.");
@@ -169,7 +169,8 @@ internal static class ModWorkspace
     {
         Installer.RequireClosedGame(game);
         var mod = Catalog.Mods.FirstOrDefault(item => item.FileName.Equals(Installer.PluginKey(change.Before), StringComparison.OrdinalIgnoreCase));
-        if (mod is null || mod.Restricted || mod.Usage == UsageTag.Illegal || Installer.ReadMods(game)[mod.Id] != ModState.Available)
+        if (mod is null || mod.Restricted || mod.Usage == UsageTag.Illegal && mod.Id != "walk-simulator" ||
+            Installer.ReadMods(game)[mod.Id] != ModState.Available)
             throw new InvalidOperationException("The removed mod is unavailable or another copy is now installed.");
         if (!Guid.TryParseExact(Path.GetFileNameWithoutExtension(change.After), "N", out _) || Path.GetExtension(change.After) != ".bak")
             throw new InvalidDataException("Invalid plugin backup name.");
@@ -275,7 +276,7 @@ internal static class ModWorkspace
         long total = 0;
         foreach (var entry in zip.Entries)
         {
-            var path = ConfigFile(game, entry.FullName.Replace('/', '\\'));
+            var path = ConfigFile(game, entry.FullName.Replace('/', Path.DirectorySeparatorChar));
             total += entry.Length + (File.Exists(path) ? new FileInfo(path).Length : 0);
             if (total > ConfigLimit || data.ContainsKey(path))
                 throw new InvalidDataException("This archive is too large or contains duplicate config paths.");
@@ -324,4 +325,5 @@ internal static class ModWorkspace
         return JsonSerializer.Deserialize<CustomPalette>(input) ?? throw new InvalidDataException("Theme file is empty.");
     }
 }
+
 

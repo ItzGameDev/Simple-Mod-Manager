@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
@@ -18,14 +19,17 @@ internal sealed record LoaderState(string? Version, bool Enabled)
 
 internal static class Installer
 {
-    public const string PluginsPath = @"BepInEx\plugins";
-    private const string ManagedPlugins = PluginsPath + @"\SimpleModManager";
+    public static readonly string PluginsPath = Path.Combine("BepInEx", "plugins");
+    private static readonly string ManagedPlugins = Path.Combine(PluginsPath, "SimpleModManager");
     private const string ConfigPath = "doorstop_config.ini";
     private const string DisabledSuffix = ".disabled";
+    private const int StandardDownloadLimit = 32 * 1024 * 1024;
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(60) };
+    private static readonly ConcurrentDictionary<string, (DateTime Modified, DateTime Created, string Hash)> LargePluginHashes = new();
     private static readonly EnumerationOptions PluginSearch = new()
     {
-        RecurseSubdirectories = true, IgnoreInaccessible = true, AttributesToSkip = FileAttributes.ReparsePoint
+        RecurseSubdirectories = true, IgnoreInaccessible = true, AttributesToSkip = FileAttributes.ReparsePoint,
+        MatchCasing = MatchCasing.CaseInsensitive
     };
 
     public static LoaderState ReadLoader(GameInstall game)
@@ -62,9 +66,9 @@ internal static class Installer
                 return ModState.Conflict;
             var disabled = IsDisabledFile(copies[0]);
             var managed = Path.Combine(game.Path, ManagedPlugins, mod.FileName) + (disabled ? DisabledSuffix : "");
-            if (!copies[0].Equals(managed, StringComparison.OrdinalIgnoreCase))
+            if (!copies[0].Equals(managed, OperatingSystem.IsLinux() ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase))
                 return disabled ? ModState.ExternalDisabled : ModState.External;
-            if (Matches(managed, mod.Sha256))
+            if (MatchesCatalogPlugin(managed, mod))
                 return disabled ? ModState.Disabled : ModState.Installed;
             return disabled ? ModState.ExternalDisabled : ModState.DifferentVersion;
         });
@@ -113,7 +117,10 @@ internal static class Installer
     public static async Task InstallLoader(GameInstall game, Action<InstallProgress> progress, CancellationToken cancellation)
     {
         if (ReadLoader(game).Installed)
+        {
+            Directory.CreateDirectory(CheckedPath(game.Path, PluginsPath));
             return;
+        }
         RequireClosedGame(game);
         var label = $"Downloading BepInEx {Catalog.BepInExVersion} from GitHub";
         progress(new(label, 3));
@@ -124,10 +131,10 @@ internal static class Installer
         var files = new Dictionary<string, byte[]>(StringComparer.OrdinalIgnoreCase);
         foreach (var entry in zip.Entries.Where(entry => entry.Name.Length > 0))
         {
-            var relative = entry.FullName.Replace('/', '\\');
+            var relative = entry.FullName.Replace('/', Path.DirectorySeparatorChar);
             if (!(relative is "winhttp.dll" or ConfigPath or ".doorstop_version" or "changelog.txt"
-                || (relative.StartsWith(@"BepInEx\core\", StringComparison.Ordinal)
-                    && relative == Path.Combine(@"BepInEx\core", entry.Name))))
+                || (relative.StartsWith(Path.Combine("BepInEx", "core") + Path.DirectorySeparatorChar, StringComparison.Ordinal)
+                    && relative == Path.Combine("BepInEx", "core", entry.Name))))
                 throw new InvalidDataException($"Unexpected file in the BepInEx archive: {entry.FullName}");
 
             var destination = CheckedPath(game.Path, relative);
@@ -142,10 +149,11 @@ internal static class Installer
         }
         progress(new("Installing BepInEx in the Gorilla Tag folder", 94));
         Commit(game, files, cancellation);
+        Directory.CreateDirectory(CheckedPath(game.Path, PluginsPath));
     }
 
     public static async Task<FileChange[]> InstallMod(GameInstall game, Mod mod, Action<InstallProgress> progress,
-        CancellationToken cancellation, string? localFile = null)
+        CancellationToken cancellation, string? localFile = null, Action? startingDownload = null)
     {
         if (mod.Restricted)
             throw new InvalidOperationException("This catalog entry is unavailable for installation.");
@@ -155,6 +163,8 @@ internal static class Installer
             throw new InvalidOperationException("Set up BepInEx before installing a mod.");
         RequireClosedGame(game);
         var states = ReadMods(game);
+        if (mod.DownloadSize is > StandardDownloadLimit)
+            return await InstallLargePlugin(game, mod, states[mod.Id], progress, cancellation, startingDownload);
         var selected = new List<Mod>();
         if (mod.Dependency is { } id)
             selected.Add(Catalog.Mods.Single(item => item.Id == id));
@@ -187,14 +197,76 @@ internal static class Installer
             var label = $"Downloading {item.Name} {item.DisplayVersion}";
             var start = 3 + index * 81 / selected.Count;
             var span = 81 / selected.Count;
+            cancellation.ThrowIfCancellationRequested();
+            startingDownload?.Invoke();
             progress(new(label, start));
-            files.Add(Path.Combine(ManagedPlugins, item.FileName), await Download(item.Asset,
-                percent => progress(new(label, start + percent * span / 100)), cancellation));
+            var data = await Download(item.Asset,
+                percent => progress(new(label, start + percent * span / 100)), cancellation);
+            files.Add(Path.Combine(ManagedPlugins, item.FileName), ExtractPlugin(item, data));
         }
         progress(new($"Installing {mod.Name}", 94));
         var committed = Commit(game, files, cancellation);
         return committed.Select(path => new FileChange("", Path.GetRelativePath(Path.Combine(game.Path, PluginsPath), path),
             Convert.ToHexString(SHA256.HashData(files[Path.GetRelativePath(game.Path, path)])))).ToArray();
+    }
+
+    private static async Task<FileChange[]> InstallLargePlugin(GameInstall game, Mod mod, ModState state,
+        Action<InstallProgress> progress, CancellationToken cancellation, Action? startingDownload)
+    {
+        if (state == ModState.Installed)
+            return [];
+        if (state != ModState.Available)
+            throw new IOException($"A copy of {mod.Name} already exists. Move it out of the plugins folder to install this release.");
+
+        var expectedSize = mod.DownloadSize!.Value;
+        var relative = Path.Combine(ManagedPlugins, mod.FileName);
+        var destination = CheckedPath(game.Path, relative);
+        var temporary = destination + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        cancellation.ThrowIfCancellationRequested();
+        startingDownload?.Invoke();
+        Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+        try
+        {
+            var label = $"Downloading {mod.Name} ({expectedSize / 1_000_000_000d:0.00} GB)";
+            progress(new(label, 3));
+            await using (var output = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None,
+                128 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan))
+            {
+                await DownloadTo(mod.Asset, output, percent => progress(new(label, 3 + percent * 90 / 100)),
+                    cancellation, expectedSize);
+                await output.FlushAsync(cancellation);
+            }
+            cancellation.ThrowIfCancellationRequested();
+            progress(new($"Installing {mod.Name}", 96));
+            RequireClosedGame(game);
+            File.Move(temporary, CheckedPath(game.Path, relative));
+            var installed = new FileInfo(destination);
+            LargePluginHashes[destination] = (installed.LastWriteTimeUtc, installed.CreationTimeUtc, mod.Sha256);
+            return [new("", Path.GetRelativePath(Path.Combine(game.Path, PluginsPath), destination), mod.Sha256.ToUpperInvariant())];
+        }
+        finally
+        {
+            File.Delete(temporary);
+        }
+    }
+
+    internal static byte[] ExtractPlugin(Mod mod, byte[] data)
+    {
+        if (mod.ArchiveEntry is null)
+            return data;
+        using var input = new MemoryStream(data);
+        using var zip = new ZipArchive(input, ZipArchiveMode.Read);
+        var entries = zip.Entries.Where(entry => entry.FullName == mod.ArchiveEntry).ToArray();
+        if (entries.Length != 1 || entries[0].Length is <= 0 or > 32 * 1024 * 1024)
+            throw new InvalidDataException("The ZIP does not contain the expected plugin DLL.");
+        // Extract the catalog's exact entry in memory so archive paths never become destinations.
+        using var stream = entries[0].Open();
+        var plugin = new byte[(int)entries[0].Length];
+        stream.ReadExactly(plugin);
+        if (stream.ReadByte() != -1 ||
+            !Convert.ToHexString(SHA256.HashData(plugin)).Equals(mod.Sha256, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException("The extracted DLL does not match the expected SHA-256.");
+        return plugin;
     }
 
     public static FileChange RemoveMod(GameInstall game, Mod mod)
@@ -286,25 +358,41 @@ internal static class Installer
 
     private static async Task<byte[]> Download(ReleaseAsset asset, Action<int> report, CancellationToken cancellation)
     {
+        using var output = new MemoryStream();
+        await DownloadTo(asset, output, report, cancellation);
+        return output.ToArray();
+    }
+
+    private static async Task DownloadTo(ReleaseAsset asset, Stream output, Action<int> report,
+        CancellationToken cancellation, long? expectedSize = null)
+    {
         using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellation);
         deadline.CancelAfter(TimeSpan.FromSeconds(60));
         cancellation = deadline.Token;
         using var response = await Http.GetAsync(asset.Url, HttpCompletionOption.ResponseHeadersRead, cancellation);
         response.EnsureSuccessStatusCode();
+        var length = response.Content.Headers.ContentLength ?? expectedSize;
+        var limit = expectedSize ?? StandardDownloadLimit;
+        if (length > limit || (expectedSize is { } expected && length != expected))
+            throw new InvalidDataException("The download has an unexpected file size.");
         using var input = await response.Content.ReadAsStreamAsync(cancellation);
-        using var output = new MemoryStream();
-        var buffer = new byte[32768];
-        var length = response.Content.Headers.ContentLength;
+        using var sha256 = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
+        var buffer = new byte[expectedSize.HasValue ? 128 * 1024 : 32768];
+        long received = 0;
         var lastProgress = 0;
         int count;
         while ((count = await input.ReadAsync(buffer, cancellation)) > 0)
         {
-            if (output.Length + count > 32 * 1024 * 1024)
+            received += count;
+            if (received > limit)
                 throw new InvalidDataException("The download exceeded the release size limit.");
-            output.Write(buffer, 0, count);
+            if (expectedSize.HasValue)
+                deadline.CancelAfter(TimeSpan.FromSeconds(60));
+            await output.WriteAsync(buffer.AsMemory(0, count), cancellation);
+            sha256.AppendData(buffer, 0, count);
             if (length is > 0)
             {
-                var percent = (int)Math.Min(100, output.Length * 100 / length.Value);
+                var percent = (int)Math.Min(100, received * 100 / length.Value);
                 if (percent >= lastProgress + 3)
                 {
                     report(percent);
@@ -312,11 +400,11 @@ internal static class Installer
                 }
             }
         }
-        var data = output.ToArray();
-        if (!Convert.ToHexString(SHA256.HashData(data)).Equals(asset.Sha256, StringComparison.OrdinalIgnoreCase))
+        if (expectedSize.HasValue && received != expectedSize.Value)
+            throw new InvalidDataException("The download ended before the full release arrived.");
+        if (!Convert.ToHexString(sha256.GetHashAndReset()).Equals(asset.Sha256, StringComparison.OrdinalIgnoreCase))
             throw new InvalidDataException("The downloaded file did not match the published SHA-256.");
         report(100);
-        return data;
     }
 
     internal static bool HasCompatibleDependency(GameInstall game, Mod mod, string minimum)
@@ -410,10 +498,10 @@ internal static class Installer
     internal static string CheckedPath(string root, string relative)
     {
         var current = root;
-        foreach (var segment in relative.Split('\\'))
+        foreach (var segment in relative.Replace('\\', '/').Split('/'))
         {
             if (segment.Length == 0 || segment.EndsWith('.') || segment.EndsWith(' ') ||
-                segment.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0)
+                segment.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 || segment.Contains(':'))
                 throw new InvalidDataException($"Invalid installation path: {relative}");
             current = Path.Combine(current, segment);
             if ((File.Exists(current) || Directory.Exists(current)) &&
@@ -421,6 +509,23 @@ internal static class Installer
                 throw new IOException($"The selected game folder contains a linked file or directory: {relative}");
         }
         return current;
+    }
+
+    private static bool MatchesCatalogPlugin(string path, Mod mod)
+    {
+        if (mod.DownloadSize is not > StandardDownloadLimit)
+            return Matches(path, mod.Sha256);
+        var file = new FileInfo(path);
+        if (file.Length != mod.DownloadSize)
+            return false;
+        var stamp = (file.LastWriteTimeUtc, file.CreationTimeUtc);
+        if (LargePluginHashes.TryGetValue(path, out var verified) &&
+            (verified.Modified, verified.Created) == stamp && verified.Hash == mod.Sha256)
+            return true;
+        if (!Matches(path, mod.Sha256))
+            return false;
+        LargePluginHashes[path] = (stamp.LastWriteTimeUtc, stamp.CreationTimeUtc, mod.Sha256);
+        return true;
     }
 
     private static bool Matches(string path, string hash)
@@ -437,7 +542,9 @@ internal static class Installer
         if (GameDiscovery.Open(game.Path, game.Store) is null)
             throw new IOException("The Gorilla Tag installation could not be verified. Choose the game again.");
 
-        foreach (var name in new[] { "Gorilla Tag", "GorillaTag" })
+        foreach (var name in OperatingSystem.IsLinux()
+            ? new[] { "Gorilla Tag", "GorillaTag", "Gorilla Tag.exe", "GorillaTag.exe" }
+            : new[] { "Gorilla Tag", "GorillaTag" })
         {
             var processes = Process.GetProcessesByName(name);
             try
@@ -453,3 +560,4 @@ internal static class Installer
         }
     }
 }
+
