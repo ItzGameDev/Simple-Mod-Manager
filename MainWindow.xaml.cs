@@ -8,13 +8,16 @@ using System.Windows.Automation;
 using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Media.Animation;
+using System.Windows.Media.Imaging;
+using System.Windows.Threading;
 using Microsoft.Win32;
 
 namespace SimpleModManager;
 
 public partial class MainWindow : Window
 {
-    private enum Page { Library, Installed, ModTools, Setup, Settings }
+    private enum Page { Library, Unofficial, Installed, ModTools, Setup, Settings }
 
     private readonly PreferencesStore store;
     private Preferences preferences;
@@ -28,6 +31,11 @@ public partial class MainWindow : Window
     private bool closeAfterOperation;
     private bool minimizing;
     private WindowState previousWindowState;
+    private readonly ManagerAccess access = new();
+    private readonly DispatcherTimer guestReminder = new() { Interval = ManagerAccess.ReminderInterval };
+    private bool managerStarted;
+    private Task<byte[]?>? shownAvatar;
+    private bool gateOrbitRunning;
 
     internal MainWindow(PreferencesStore store)
     {
@@ -44,15 +52,31 @@ public partial class MainWindow : Window
         Navigate(Page.Library);
         Loaded += FirstLoad;
         Closing += CancelWhileClosing;
-        Closed += (_, _) => StopTutorialTracking();
+        guestReminder.Tick += (_, _) => Status("Log in to get more downloads!");
+        Closed += (_, _) =>
+        {
+            guestReminder.Stop();
+            access.Discord.Cancel();
+            StopTutorialTracking();
+        };
     }
 
-    private async void FirstLoad(object sender, RoutedEventArgs e)
+    private void FirstLoad(object sender, RoutedEventArgs e)
     {
         Loaded -= FirstLoad;
         AlignSelections();
         Reveal(MainSurface, 10, duration: 265);
+        Reveal(GateCard, 22, duration: 440);
+        UpdateGateMotion();
         UpdateHeroMotion();
+        GateSignInButton.Focus();
+    }
+
+    private async Task StartManager()
+    {
+        if (managerStarted || !access.CanEnter || !IsVisible)
+            return;
+        managerStarted = true;
         await Scan(restoreSaved: true);
         if (!closeAfterOperation && IsVisible && !preferences.TutorialSeen)
             ShowTutorial(this, new RoutedEventArgs());
@@ -140,6 +164,7 @@ public partial class MainWindow : Window
         }
         page = destination;
         LibraryNav.Tag = page == Page.Library ? "Active" : null;
+        UnofficialNav.Tag = page == Page.Unofficial ? "Active" : null;
         InstalledNav.Tag = page == Page.Installed ? "Active" : null;
         ModToolsNav.Tag = page == Page.ModTools ? "Active" : null;
         SetupNav.Tag = page == Page.Setup ? "Active" : null;
@@ -147,7 +172,7 @@ public partial class MainWindow : Window
         MoveSelection(NavigationChoices, NavigationOutline, ActiveNavigationButton(), IsLoaded);
         SetPageVisibility();
         UpdateHeroMotion();
-        LibraryTitle.Text = page == Page.Installed ? "Installed Mods" : "Mod Libary";
+        LibraryTitle.Text = page == Page.Installed ? "Installed Mods" : "Official Mods";
         LibraryIntro.Text = page == Page.Installed ? "Browse plugins in your selected game folder."
             : "Browse and install community mods for Gorilla Tag on PC.";
         CatalogHeading.Text = page == Page.Installed ? "In your game" : "Browse mods";
@@ -161,13 +186,14 @@ public partial class MainWindow : Window
         if (page == Page.ModTools)
             RenderModTools();
         if (IsLoaded)
-            Reveal(page switch { Page.ModTools => ModToolsPage, Page.Setup => SetupPage, Page.Settings => SettingsPage, _ => LibraryHero }, 7, duration: 205);
+            Reveal(page switch { Page.Unofficial => UnofficialPage, Page.ModTools => ModToolsPage, Page.Setup => SetupPage, Page.Settings => SettingsPage, _ => LibraryHero }, 7, duration: 205);
     }
 
     private void SetPageVisibility()
     {
         var root = toolPages.Count == 0;
         LibraryPage.Visibility = root && page is (Page.Library or Page.Installed) ? Visibility.Visible : Visibility.Collapsed;
+        UnofficialPage.Visibility = root && page == Page.Unofficial ? Visibility.Visible : Visibility.Collapsed;
         ModToolsPage.Visibility = root && page == Page.ModTools ? Visibility.Visible : Visibility.Collapsed;
         SetupPage.Visibility = root && page == Page.Setup ? Visibility.Visible : Visibility.Collapsed;
         SettingsPage.Visibility = root && page == Page.Settings ? Visibility.Visible : Visibility.Collapsed;
@@ -313,6 +339,8 @@ public partial class MainWindow : Window
 
     private void OnKeyDown(object sender, KeyEventArgs e)
     {
+        if (!access.CanEnter)
+            return;
         if (e.Key == Key.Escape && selectedMod is not null)
         {
             HideDetails();
@@ -362,6 +390,7 @@ public partial class MainWindow : Window
         }
     }
 
+    private void ShowUnofficial(object sender, RoutedEventArgs e) => Navigate(Page.Unofficial);
     private void ShowLibrary(object sender, RoutedEventArgs e) => Navigate(Page.Library);
     private void ShowInstalled(object sender, RoutedEventArgs e) => Navigate(Page.Installed);
     private void ShowSetup(object sender, RoutedEventArgs e)
@@ -380,6 +409,123 @@ public partial class MainWindow : Window
     private void OpenPluginsFolder(object sender, RoutedEventArgs e) { if (game is { } target) OpenLink(Path.Combine(target.Path, Installer.PluginsPath)); }
     private void OpenBepInEx(object sender, RoutedEventArgs e) => OpenLink(Catalog.BepInExSource);
     private void OpenDiscord(object sender, RoutedEventArgs e) => OpenLink(Catalog.Discord);
+    private void OpenGuestAccount(object sender, RoutedEventArgs e) => Navigate(Page.Settings);
+
+    private async void ToggleDiscordSignIn(object sender, RoutedEventArgs e)
+    {
+        if (operation is not null)
+            return;
+        await access.ToggleSignIn(RefreshAccount);
+        await StartManager();
+    }
+
+    private async void EnterAsGuest(object sender, RoutedEventArgs e)
+    {
+        access.EnterAsGuest();
+        RefreshAccount();
+        await StartManager();
+    }
+
+    private void RefreshAccount()
+    {
+        var discord = access.Discord;
+        var wasLocked = TourBackground.Visibility != Visibility.Visible;
+        GateStatus.Text = discord.Status == "Signed out" ? "Sign in to get unlimited mod downloads." : discord.Status;
+        GateSignInButton.Content = discord.ButtonLabel;
+        DiscordStatus.Text = access.IsGuest && discord.Status == "Signed out"
+            ? "Guest mode · 5 downloads per hour. Log in to get more downloads!" : discord.Status;
+        DiscordSignInButton.Content = discord.ButtonLabel;
+        AccountWelcome.Text = access.CanEnter ? access.Welcome : "";
+        AccountPortrait.Visibility = discord.DisplayName is null ? Visibility.Collapsed : Visibility.Visible;
+        if (shownAvatar != discord.Avatar)
+        {
+            shownAvatar = discord.Avatar;
+            AccountAvatar.ImageSource = null;
+            if (shownAvatar is { } avatar)
+                _ = ShowAccountAvatar(avatar);
+        }
+        GuestAccountButton.Visibility = access.IsGuest ? Visibility.Visible : Visibility.Collapsed;
+        TourBackground.Visibility = access.CanEnter ? Visibility.Visible : Visibility.Collapsed;
+        if (wasLocked != !access.CanEnter)
+        {
+            if (access.CanEnter)
+                OpenManagerVisually();
+            else
+            {
+                AccountGate.BeginAnimation(OpacityProperty, null);
+                AccountGate.Visibility = Visibility.Visible;
+                AccountGate.IsHitTestVisible = true;
+                Reveal(GateCard, 16, duration: 420);
+                GateSignInButton.Focus();
+            }
+        }
+        UpdateGateMotion();
+        if (access.IsGuest && IsVisible) guestReminder.Start();
+        else guestReminder.Stop();
+    }
+
+    private void OpenManagerVisually()
+    {
+        AccountGate.IsHitTestVisible = false;
+        if (!MotionEnabled)
+        {
+            AccountGate.Visibility = Visibility.Collapsed;
+            return;
+        }
+
+        Keyboard.ClearFocus();
+        Reveal(TourBackground, 12, duration: 720);
+        var fade = new DoubleAnimation(1, 0, TimeSpan.FromMilliseconds(490))
+        {
+            EasingFunction = new SineEase { EasingMode = EasingMode.EaseInOut }
+        };
+        fade.Completed += (_, _) =>
+        {
+            if (!access.CanEnter) return;
+            AccountGate.Visibility = Visibility.Collapsed;
+            AccountGate.BeginAnimation(OpacityProperty, null);
+            UpdateGateMotion();
+        };
+        AccountGate.BeginAnimation(OpacityProperty, fade);
+    }
+
+    private async Task ShowAccountAvatar(Task<byte[]?> avatar)
+    {
+        var bytes = await avatar;
+        if (bytes is null || shownAvatar != avatar || !IsVisible)
+            return;
+        try
+        {
+            using var stream = new MemoryStream(bytes);
+            var image = new BitmapImage();
+            image.BeginInit();
+            image.StreamSource = stream;
+            image.CacheOption = BitmapCacheOption.OnLoad;
+            image.DecodePixelWidth = 48;
+            image.EndInit();
+            image.Freeze();
+            AccountAvatar.ImageSource = image;
+            Reveal(AccountPortrait, 3, duration: 260);
+        }
+        catch (Exception ex) when (ex is IOException or NotSupportedException or FileFormatException)
+        {
+            // The portrait already shows a fallback glyph.
+        }
+    }
+
+    private void UpdateGateMotion()
+    {
+        var visible = IsLoaded && AccountGate.IsVisible && WindowState != WindowState.Minimized;
+        var animate = visible && MotionEnabled;
+        GateProgress.Opacity = visible && access.Discord.IsPending ? 1 : 0;
+        GateProgress.IsIndeterminate = animate && access.Discord.IsPending;
+        GateProgress.Value = access.Discord.IsPending ? 100 : 0;
+        if (animate == gateOrbitRunning) return;
+        gateOrbitRunning = animate;
+        GateOrbit.BeginAnimation(RotateTransform.AngleProperty, animate
+            ? new DoubleAnimation(0, 360, TimeSpan.FromSeconds(16)) { RepeatBehavior = RepeatBehavior.Forever }
+            : null);
+    }
     private void OpenModPolicy(object sender, RoutedEventArgs e) => OpenLink("https://www.gorillatagvr.com/fan-content-mod-policy");
     private async void Minimize(object sender, RoutedEventArgs e)
     {
@@ -409,7 +555,10 @@ public partial class MainWindow : Window
             Reveal(MainSurface, 8, duration: 235);
         previousWindowState = WindowState;
         if (initialized)
+        {
             UpdateHeroMotion();
+            UpdateGateMotion();
+        }
         MaximizeGlyph.Data = Geometry.Parse(WindowState == WindowState.Maximized
             ? "M 2,2 V 0 H 10 V 8 H 8 M 0,2 H 8 V 10 H 0 Z" : "M 0,0 H 9 V 9 H 0 Z");
         MaximizeButton.ToolTip = WindowState == WindowState.Maximized ? "Restore" : "Maximize";
@@ -417,6 +566,7 @@ public partial class MainWindow : Window
     }
     private void CloseWindow(object sender, RoutedEventArgs e) => Close();
 }
+
 
 
 

@@ -290,7 +290,7 @@ public partial class MainWindow
 
     private Button ActiveNavigationButton() => page switch
     {
-        Page.Installed => InstalledNav, Page.ModTools => ModToolsNav, Page.Setup => SetupNav, Page.Settings => SettingsNav, _ => LibraryNav
+        Page.Unofficial => UnofficialNav, Page.Installed => InstalledNav, Page.ModTools => ModToolsNav, Page.Setup => SetupNav, Page.Settings => SettingsNav, _ => LibraryNav
     };
 
     private Button[] CategoryButtons => [AllFilter, GameplayFilter, CosmeticsFilter, CaptureFilter, UtilitiesFilter, LibraryFilter];
@@ -505,3 +505,4 @@ public partial class MainWindow
     [DllImport("dwmapi.dll")]
     private static extern int DwmSetWindowAttribute(nint window, uint attribute, in int value, uint size);
 }
+

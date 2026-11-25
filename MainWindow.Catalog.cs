@@ -237,7 +237,7 @@ public partial class MainWindow
 
     private static string UsageDescription(Mod mod) => mod.Usage switch
     {
-        UsageTag.Legal when mod.Category == "Gameplay" => "Catalog usage label. Use this mod in modded rooms.",
+        UsageTag.Legal when mod.Category == "Mod Menus" => "Catalog usage label. Use this mod in modded rooms.",
         UsageTag.Legal => "Community catalog usage label.",
         UsageTag.Illegal => "Disallowed by game rules.",
         UsageTag.Restricted => "The release contains tools that can disrupt other players’ sessions.",
@@ -260,7 +260,7 @@ public partial class MainWindow
         ModSourceButton.Visibility = mod.Source is null ? Visibility.Collapsed : Visibility.Visible;
         var state = StateOf(mod);
         var notes = new List<string>();
-        if (mod.Usage == UsageTag.Legal && mod.Category == "Gameplay")
+        if (mod.Usage == UsageTag.Legal && mod.Category == "Mod Menus")
             notes.Add("Use in modded rooms.");
         if (mod.Dependency is { } dependency)
             {

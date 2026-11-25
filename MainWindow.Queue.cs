@@ -76,6 +76,7 @@ public partial class MainWindow
                             (position * 100 + update.Percent) / jobs.Length)), token);
                         UpdateQueue(job, "Complete", null);
                     }
+                    catch (GuestDownloadLimitException) { throw; }
                     catch (Exception ex) when (!token.IsCancellationRequested && ex is IOException or InvalidDataException or UnauthorizedAccessException or
                         InvalidOperationException or System.Net.Http.HttpRequestException or OperationCanceledException)
                     {

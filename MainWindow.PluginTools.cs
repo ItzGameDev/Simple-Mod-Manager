@@ -252,7 +252,7 @@ public partial class MainWindow
     private async Task InstallWithHistory(GameInstall target, Mod mod, Action<InstallProgress> progress,
         CancellationToken token, string? localFile = null)
     {
-        var changes = await Installer.InstallMod(target, mod, progress, token, localFile);
+        var changes = await access.InstallMod(target, mod, progress, token, localFile);
         RecordHistory(target, $"Install {mod.Name}", changes);
     }
 
