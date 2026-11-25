@@ -29,8 +29,6 @@ On startup, sign in with Discord through your browser or choose **Continue as gu
 
 Guests can download five mods in a rolling hour and see a sign-in reminder every 30 minutes. Direct and queued downloads share a per-user counter saved on the device. An install and its automatically downloaded dependencies count as one download. Guests can sign in from **Settings → Discord account** at any time.
 
-To enable sign-in for this build, open application `1573769040701423626` in the Discord Developer Portal. Under **OAuth2**, enable **Public Client** and add the exact redirect `http://127.0.0.1:42813/discord/callback/`. The desktop app requests the `identify` scope and uses PKCE. It needs no client secret or hosted callback.
-
 ## App updates
 
 The app checks the project’s GitHub version.txt on startup. A newer published version offers a download and installation after you choose to update. The Windows app starts the setup EXE. The Linux app replaces a writable extracted installation and keeps the previous app folder as a backup. You can turn startup checks off in Settings or check manually.
