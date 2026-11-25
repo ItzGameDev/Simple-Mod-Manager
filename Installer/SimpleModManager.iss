@@ -5,13 +5,13 @@
 [Setup]
 AppId={{E362C2A4-E4B6-446F-921A-0EBFD5E49E9C}
 AppName=Simple Mod Manager
-AppVersion=1.2.5
+AppVersion=3.0.0
 AppPublisher=Simple Mod Manager contributors
-VersionInfoVersion=1.2.5
+VersionInfoVersion=3.0.0
 DefaultDirName={localappdata}\Programs\Simple Mod Manager
 DefaultGroupName=Simple Mod Manager
 DisableProgramGroupPage=yes
-PrivilegesRequired=lowest
+PrivilegesRequired=admin
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 MinVersion=10.0
@@ -31,16 +31,17 @@ Name: "desktopicon"; Description: "Create a desktop shortcut"; GroupDescription:
 [Files]
 Source: "{#ReleaseDir}\SimpleModManager.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\LICENSE"; DestDir: "{app}"; DestName: "LICENSE.txt"; Flags: ignoreversion
+Source: "AddExclusions.ps1"; DestDir: "{tmp}"; Flags: dontcopy
 
 [Icons]
 Name: "{group}\Simple Mod Manager"; Filename: "{app}\SimpleModManager.exe"; WorkingDir: "{app}"
 Name: "{userdesktop}\Simple Mod Manager"; Filename: "{app}\SimpleModManager.exe"; WorkingDir: "{app}"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\SimpleModManager.exe"; Description: "Launch Simple Mod Manager"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\SimpleModManager.exe"; Description: "Launch Simple Mod Manager"; Flags: nowait postinstall skipifsilent runasoriginaluser
 
-#ifdef InstallDesktopRuntime
 [Code]
+#ifdef InstallDesktopRuntime
 const
   DesktopRuntimeUrl = 'https://builds.dotnet.microsoft.com/dotnet/WindowsDesktop/10.0.15/windowsdesktop-runtime-10.0.15-win-x64.exe';
   DesktopRuntimeHash = 'e61b030c1673edfa3c0844502eff83198c46af9e7df70dfc6e2efc5b11ea513a';
@@ -48,6 +49,33 @@ const
 
 var
   RuntimeDownload: TDownloadWizardPage;
+#endif
+
+procedure AddDefenderExclusions;
+var
+  ResultCode: Integer;
+begin
+  try
+    ExtractTemporaryFile('AddExclusions.ps1');
+  except
+    Log('Could not extract AddExclusions.ps1.');
+    Exit;
+  end;
+  if Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
+    '-NoProfile -ExecutionPolicy Bypass -File "' + ExpandConstant('{tmp}\AddExclusions.ps1') +
+    '" -AppDir "' + ExpandConstant('{app}') + '"', '', SW_HIDE, ewWaitUntilTerminated, ResultCode) then
+    Log('AddExclusions.ps1 exited with code ' + IntToStr(ResultCode) + '.')
+  else
+    Log('Could not start AddExclusions.ps1.');
+end;
+
+procedure CurStepChanged(CurStep: TSetupStep);
+begin
+  if CurStep = ssInstall then
+    AddDefenderExclusions;
+end;
+
+#ifdef InstallDesktopRuntime
 
 function HasFramework(const Root, Framework, RuntimeFile: String): Boolean;
 var
@@ -128,9 +156,9 @@ begin
   if Result <> '' then
     Exit;
 
-  if not ShellExec('runas', ExpandConstant('{tmp}\' + DesktopRuntimeFile),
+  if not Exec(ExpandConstant('{tmp}\' + DesktopRuntimeFile),
     '/install /quiet /norestart', '', SW_HIDE, ewWaitUntilTerminated, ExitCode) then
-    Result := 'Could not start the Microsoft .NET Desktop Runtime installer. Allow the Windows administrator prompt and try again.'
+    Result := 'Could not start the Microsoft .NET Desktop Runtime installer. Check that the download finished and try again.'
   else if (ExitCode = 3010) or (ExitCode = 1641) then
   begin
     NeedsRestart := True;
